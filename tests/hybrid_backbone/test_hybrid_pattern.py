@@ -57,17 +57,17 @@ def test_attention_ffn_and_norm_parameters_are_never_shared():
         assert len(parameter_pointers) == len(set(parameter_pointers))
 
 
-def test_final_global_layer_has_no_ffn_by_default():
+def test_canonical_final_global_layer_has_ffn_partner():
     model = tiny_backbone()
     assert model.final_global_layer.attention_type == "gated_mla"
-    assert model.final_global_layer.ffn is None
-    assert model.final_global_layer.ffn_norm is None
-
-
-def test_final_global_ffn_can_be_enabled_explicitly():
-    model = tiny_backbone(add_ffn_after_final_global=True)
     assert model.final_global_layer.ffn is not None
     assert model.final_global_layer.ffn_norm is not None
+
+
+def test_final_global_ffn_can_be_disabled_only_as_standard_ablation():
+    model = tiny_backbone(add_ffn_after_final_global=False)
+    assert model.final_global_layer.ffn is None
+    assert model.final_global_layer.ffn_norm is None
 
 
 def test_parameter_count_matches_closed_form_for_one_group():
@@ -98,7 +98,7 @@ def test_parameter_count_matches_closed_form_for_one_group():
         + 2 * d * d
     )
     ffn = 3 * d * config.resolved_mlp_hidden_dim
-    norms = 10 * d
-    expected = 3 * kda + 2 * mla + 4 * ffn + norms
+    norms = 11 * d
+    expected = 3 * kda + 2 * mla + 5 * ffn + norms
     observed = sum(parameter.numel() for parameter in model.parameters())
     assert observed == expected

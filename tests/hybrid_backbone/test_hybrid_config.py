@@ -20,7 +20,7 @@ def test_canonical_config_counts_and_defaults():
     assert config.num_kda_layers == 6
     assert config.num_mla_layers == 3
     assert config.add_final_gated_mla
-    assert not config.add_ffn_after_final_global
+    assert config.add_ffn_after_final_global
 
 
 @pytest.mark.parametrize(

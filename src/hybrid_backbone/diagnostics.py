@@ -11,6 +11,7 @@ def parameter_counts(
     groups: nn.ModuleList,
     final_global_layer: nn.Module,
     final_norm: nn.Module,
+    final_output_attnres: nn.Module | None = None,
 ) -> dict[str, int]:
     layers = [
         layer
@@ -43,6 +44,20 @@ def parameter_counts(
             for layer in layers
         )
         + count_parameters(final_norm),
+        "attnres": sum(
+            count_parameters(site)
+            for layer in layers
+            for site in (
+                layer.pre_attention_attnres,
+                layer.pre_ffn_attnres,
+            )
+            if site is not None
+        )
+        + (
+            count_parameters(final_output_attnres)
+            if final_output_attnres is not None
+            else 0
+        ),
     }
 
 
@@ -51,10 +66,13 @@ def build_backbone_diagnostics(
     groups: nn.ModuleList,
     final_global_layer: nn.Module,
     final_norm: nn.Module,
+    final_output_attnres: nn.Module | None,
     cache: HybridBackboneCache | None,
     device: torch.device,
 ) -> dict[str, object]:
-    counts = parameter_counts(groups, final_global_layer, final_norm)
+    counts = parameter_counts(
+        groups, final_global_layer, final_norm, final_output_attnres
+    )
     counts["total"] = sum(counts.values())
     return {
         "layers": layer_diagnostics,

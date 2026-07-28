@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from src.attention_residuals import AttentionResidualConfig
 from src.kda import KDAConfig
 from src.mla import GatedMLAConfig
 
@@ -17,7 +18,7 @@ class HybridBackboneConfig:
     num_hybrid_groups: int
     attention_pattern: tuple[str, ...] = CANONICAL_ATTENTION_PATTERN
     add_final_gated_mla: bool = True
-    add_ffn_after_final_global: bool = False
+    add_ffn_after_final_global: bool = True
     rms_norm_eps: float = 1e-6
     residual_dropout: float = 0.0
     ffn_dropout: float = 0.0
@@ -28,6 +29,7 @@ class HybridBackboneConfig:
     activation: str = "situ_glu"
     ffn_bias: bool = False
     init_std: float = 0.02
+    attention_residual_config: AttentionResidualConfig | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "attention_pattern", tuple(self.attention_pattern))
@@ -78,6 +80,23 @@ class HybridBackboneConfig:
             raise ValueError("only activation='situ_glu' is supported")
         if self.init_std <= 0:
             raise ValueError("init_std must be > 0")
+        if self.attention_residual_config is not None:
+            if self.attention_residual_config.d_model != self.d_model:
+                raise ValueError(
+                    "attention_residual_config.d_model must match backbone"
+                )
+            self.attention_residual_config.validate_topology(
+                self.num_attention_layers,
+                every_layer_has_ffn=self.add_ffn_after_final_global,
+            )
+
+    @property
+    def depth_mixing(self) -> str:
+        return (
+            "standard"
+            if self.attention_residual_config is None
+            else self.attention_residual_config.mode
+        )
 
     @property
     def resolved_mlp_hidden_dim(self) -> int:
@@ -114,6 +133,12 @@ class HybridBackboneConfig:
         if isinstance(values.get("mla_config"), dict):
             values["mla_config"] = GatedMLAConfig.from_dict(
                 values["mla_config"]
+            )
+        if isinstance(values.get("attention_residual_config"), dict):
+            values["attention_residual_config"] = (
+                AttentionResidualConfig.from_dict(
+                    values["attention_residual_config"]
+                )
             )
         if "attention_pattern" in values:
             values["attention_pattern"] = tuple(values["attention_pattern"])

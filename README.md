@@ -3,17 +3,22 @@
 A research-oriented, pure-PyTorch, reduced-scale implementation of the
 principal architectural mechanisms introduced or combined in Kimi K3.
 
-## Current status: Phase 0
+## Current status: Phase 7
 
-The repository currently contains only a control model:
+The repository now contains the research-scale text backbone through Attention
+Residuals:
 
 ```text
-token ids → embedding → causal MHA + RoPE → SwiGLU → RMSNorm → LM head
+3 KDA + 1 Gated MLA per hybrid group
+→ additional final Gated MLA
+→ dense SiTU-GLU FFNs
+→ selectable standard, Full AttnRes, or Block AttnRes depth mixing
+→ final RMSNorm
 ```
 
-It is a baseline Transformer, **not** a paper-faithful Kimi-K3 implementation.
-KDA, Gated MLA, Attention Residuals, Stable LatentMoE, MoonViT-V2, MTP, and RL
-are intentionally absent until their corresponding phases.
+Both eager and exact two-phase Block AttnRes backends support full, prefill and
+autoregressive decode with typed KDA/MLA caches. Stable LatentMoE, Quantile
+Balancing, MTP and final multimodal integration remain future phases.
 
 Generic Transformer, data, and training infrastructure was adapted from the
 author's MIT-licensed DeepSeek-V4 Mini project. There are no runtime imports

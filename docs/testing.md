@@ -45,6 +45,7 @@ mathematical or behavioral test.
 | Kimi Delta Attention | K3 projections/decay, recurrent equations/invariants, UT solve and WY auxiliaries, chunk-size/route/gradient equivalence, prefix causality, masks, constant-size decode cache, BF16 and serialization |
 | Kimi Gated MLA | NoPE inspection/equivariance, shared latent KV equations, manual scalar/SDPA parity, causal global attention, full-rank gate, compressed-cache prefill/decode, unequal right-padding, complete gradients/gradchecks, BF16 and serialization |
 | Hybrid attention backbone | explicit repeated 3:1 KDA/MLA pattern plus final MLA, two pre-norm residual branches, replaceable dense SiTU-GLU FFN, typed synchronized caches, full/prefill/decode and unequal-padding equivalence, end-to-end causality, parameter counts, gradients/gradcheck and serialization |
+| Attention Residuals | exact depth-softmax oracle, Full/Block state machines, block-size-1 parity, eager/two-phase online-softmax parity, independent site parameters, final mixer, no residual leakage, full/prefill/decode and cache equivalence, causal/padding invariants, gradients/gradcheck, BF16, diagnostics, memory accounting and serialization |
 
 ## CPU command
 

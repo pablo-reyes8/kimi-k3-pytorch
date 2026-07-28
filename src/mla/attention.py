@@ -182,7 +182,12 @@ def mla_attention(
         dropout_p=dropout_p if training else 0.0,
         is_causal=False,
     ).transpose(1, 2)
-    output = output * allowed.any(dim=-1)[:, :, None, None].to(output.dtype)
+    valid_output_rows = allowed.any(dim=-1)[:, :, None, None]
+    output = torch.where(
+        valid_output_rows,
+        output,
+        torch.zeros_like(output),
+    )
     if not keep_output_fp32 and output.dtype != q.dtype:
         output = output.to(q.dtype)
     return output

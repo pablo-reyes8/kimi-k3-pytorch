@@ -140,6 +140,7 @@ class GatedMLA(nn.Module):
             raw_output, probabilities = attention_result
         else:
             raw_output, probabilities = attention_result, None
+            
         final_output, gate = self._postprocess(raw_output, hidden_states)
         final_output = final_output * current_mask[..., None].to(final_output.dtype)
 

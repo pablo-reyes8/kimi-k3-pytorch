@@ -6,6 +6,7 @@ from .dense_ffn import DenseKimiFFN
 from .diagnostics import parameter_counts
 from .hybrid_group import HybridAttentionGroup
 from .outputs import (
+    BackboneHiddenStateTrace,
     HybridBackboneOutput,
     HybridGroupOutput,
     HybridLayerOutput,
@@ -13,6 +14,7 @@ from .outputs import (
 
 __all__ = [
     "CANONICAL_ATTENTION_PATTERN",
+    "BackboneHiddenStateTrace",
     "DenseKimiFFN",
     "HybridAttentionBackbone",
     "HybridAttentionGroup",

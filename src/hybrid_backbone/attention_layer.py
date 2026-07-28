@@ -5,6 +5,13 @@ from typing import Literal
 import torch
 import torch.nn as nn
 
+from src.attention_residuals import (
+    AttentionResidualSite,
+    BlockAttentionResidualController,
+    BlockAttentionResidualState,
+    FullAttentionResidualController,
+    FullAttentionResidualState,
+)
 from src.kda import KDAState, KimiDeltaAttention
 from src.mla import GatedMLA, MLACache
 from src.transformer_modules.rms_norm import RMSNorm
@@ -30,6 +37,8 @@ class HybridAttentionLayer(nn.Module):
         group_index: int | None,
         position_in_group: int | None,
         is_final_global: bool = False,
+        pre_attention_attnres: AttentionResidualSite | None = None,
+        pre_ffn_attnres: AttentionResidualSite | None = None,
     ):
         super().__init__()
         if attention_type not in ("kda", "gated_mla"):
@@ -58,6 +67,8 @@ class HybridAttentionLayer(nn.Module):
         )
         self.ffn = ffn_module
         self.residual_dropout = nn.Dropout(residual_dropout)
+        self.pre_attention_attnres = pre_attention_attnres
+        self.pre_ffn_attnres = pre_ffn_attnres
 
     @property
     def attention_label(self) -> str:
@@ -142,3 +153,143 @@ class HybridAttentionLayer(nn.Module):
                 "mechanism": mechanism_diagnostics,
             }
         return HybridLayerOutput(output, next_cache, diagnostics)
+
+    def _attention_transform(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: torch.Tensor,
+        cache: HybridLayerCache | None,
+        *,
+        use_cache: bool,
+        mode: str,
+        output_diagnostics: bool,
+    ) -> tuple[torch.Tensor, object, dict[str, torch.Tensor] | None]:
+        if cache is not None and cache.attention_type != self.attention_type:
+            raise ValueError("cache type does not match attention layer")
+        state = None if cache is None else cache.state
+        if self.attention_type == "kda":
+            if state is not None and not isinstance(state, KDAState):
+                raise TypeError("KDA layer requires KDAState")
+            result = self.attention(
+                self.attention_norm(hidden_states),
+                attention_mask=attention_mask,
+                state=state,
+                mode="decode" if mode == "decode" else "chunkwise",
+                output_final_state=use_cache,
+                output_diagnostics=output_diagnostics,
+            )
+            return result.hidden_states, result.state, result.diagnostics
+        if state is not None and not isinstance(state, MLACache):
+            raise TypeError("MLA layer requires MLACache")
+        result = self.attention(
+            self.attention_norm(hidden_states),
+            attention_mask=attention_mask,
+            cache=state,
+            use_cache=use_cache,
+            output_diagnostics=output_diagnostics,
+        )
+        return result.hidden_states, result.cache, result.diagnostics
+
+    def forward_attnres(
+        self,
+        depth_controller: (
+            FullAttentionResidualController
+            | BlockAttentionResidualController
+        ),
+        depth_state: (
+            FullAttentionResidualState
+            | BlockAttentionResidualState
+        ),
+        attention_mask: torch.Tensor,
+        cache: HybridLayerCache | None = None,
+        *,
+        depth_block_sites: dict[int, tuple[AttentionResidualSite, ...]] | None = None,
+        use_cache: bool = False,
+        mode: Literal["full", "prefill", "decode"] = "full",
+        output_depth_weights: bool = False,
+        output_depth_stats: bool = False,
+        output_diagnostics: bool = False,
+    ) -> tuple[HybridLayerOutput, tuple[object, object]]:
+        if self.pre_attention_attnres is None or self.pre_ffn_attnres is None:
+            raise RuntimeError("AttnRes sites are not configured on this layer")
+
+        def prepare(site: AttentionResidualSite) -> None:
+            if isinstance(depth_controller, BlockAttentionResidualController):
+                block_index = site.metadata.depth_block_index
+                depth_controller.prepare_depth_block(
+                    depth_state, depth_block_sites[block_index]
+                )
+
+        prepare(self.pre_attention_attnres)
+        attention_mix = depth_controller.mix_for_site(
+            self.pre_attention_attnres,
+            depth_state,
+            return_weights=output_depth_weights,
+            return_stats=output_depth_stats,
+        )
+        attention_output, next_state, mechanism_diagnostics = (
+            self._attention_transform(
+                attention_mix.mixed_state,
+                attention_mask,
+                cache,
+                use_cache=use_cache,
+                mode=mode,
+                output_diagnostics=output_diagnostics,
+            )
+        )
+        attention_output = self.residual_dropout(attention_output)
+        depth_controller.append_output(depth_state, attention_output)
+
+        prepare(self.pre_ffn_attnres)
+        ffn_mix = depth_controller.mix_for_site(
+            self.pre_ffn_attnres,
+            depth_state,
+            return_weights=output_depth_weights,
+            return_stats=output_depth_stats,
+        )
+        if self.ffn is None or self.ffn_norm is None:
+            raise RuntimeError(
+                "canonical AttnRes requires an FFN at every transformer layer"
+            )
+        ffn_output = self.residual_dropout(
+            self.ffn(self.ffn_norm(ffn_mix.mixed_state))
+        )
+        depth_controller.append_output(depth_state, ffn_output)
+        next_cache = (
+            HybridLayerCache(self.attention_type, next_state)
+            if use_cache
+            else None
+        )
+        diagnostics = None
+        if output_diagnostics:
+            diagnostics = {
+                "layer_index": self.layer_index,
+                "group_index": self.group_index,
+                "position_in_group": self.position_in_group,
+                "attention_type": self.attention_label,
+                "pre_attention_depth_norm": masked_norm_mean(
+                    attention_mix.mixed_state, attention_mask
+                ),
+                "attention_output_norm": masked_norm_mean(
+                    attention_output, attention_mask
+                ),
+                "pre_ffn_depth_norm": masked_norm_mean(
+                    ffn_mix.mixed_state, attention_mask
+                ),
+                "ffn_output_norm": masked_norm_mean(
+                    ffn_output, attention_mask
+                ),
+                "mechanism": mechanism_diagnostics,
+            }
+        return (
+            HybridLayerOutput(
+                hidden_states=ffn_output,
+                cache=next_cache,
+                diagnostics=diagnostics,
+                pre_attention_state=attention_mix.mixed_state,
+                attention_output=attention_output,
+                pre_ffn_state=ffn_mix.mixed_state,
+                ffn_output=ffn_output,
+            ),
+            (attention_mix, ffn_mix),
+        )

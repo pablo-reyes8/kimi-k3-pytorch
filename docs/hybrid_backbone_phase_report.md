@@ -26,8 +26,9 @@ u = x + dropout(attention(RMSNorm(x)))
 y = u + dropout(ffn(RMSNorm(u)))
 ```
 
-The final global MLA omits the second branch by default. `ffn` is treated only
-as `nn.Module: [B,T,D] -> [B,T,D]`; the current `DenseKimiFFN` wraps SiTU-GLU
+The final global MLA is also paired with an FFN in the corrected canonical
+profile; omitting it remains available only as a standard-residual ablation.
+`ffn` is treated only as `nn.Module: [B,T,D] -> [B,T,D]`; the current `DenseKimiFFN` wraps SiTU-GLU
 and can later be replaced by Stable LatentMoE without editing KDA, MLA, cache
 or attention routing.
 
@@ -85,13 +86,13 @@ CPU BF16 versus FP32 produced maximum/mean absolute errors of `9.45e-3` and
 `1.86e-3`, with maximum relative error `9.01e-3`. CUDA BF16 coverage is
 present but skipped on the CPU-only host.
 
-The one-group test profile contains 2,734 parameters:
+The corrected one-group canonical profile contains 3,030 parameters:
 
 ```text
 KDA attention:  1,062
 Gated MLA:        440
-dense FFN:      1,152
-RMSNorms:          80
+dense FFN:      1,440
+RMSNorms:          88
 ```
 
 Basic CPU benchmark at `D=32`, `T=64`:

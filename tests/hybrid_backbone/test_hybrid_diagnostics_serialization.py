@@ -32,7 +32,10 @@ def test_diagnostics_are_complete_per_layer_and_globally():
             assert torch.isfinite(layer[name])
         assert isinstance(layer["mechanism"], dict)
     counts = diagnostics["num_parameters_by_component"]
-    assert counts.keys() == {"kda", "gated_mla", "ffn", "norms", "total"}
+    assert counts.keys() == {
+        "kda", "gated_mla", "ffn", "norms", "attnres", "total"
+    }
+    assert counts["attnres"] == 0
     assert counts["total"] == sum(
         parameter.numel() for parameter in model.parameters()
     )
