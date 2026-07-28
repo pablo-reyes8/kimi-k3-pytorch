@@ -2,7 +2,8 @@ import data
 import src
 import training
 from src.kimi_block import KimiBlock
-from src.kimi_k3_mini import BaselineCausalLM, BaselineCausalLMConfig
+from src.causal_lm import BaselineCausalLM, BaselineCausalLMConfig
+from src.kimi_k3_mini import KimiK3
 from src.mtp import KimiMTPHead
 from src.outputs import CausalLMOutput
 
@@ -13,6 +14,7 @@ def test_public_exports_are_present_and_kimi_architecture_is_not_faked():
     assert src.CausalLMOutput is CausalLMOutput
     assert src.KimiBlock is KimiBlock
     assert src.KimiMTPHead is KimiMTPHead
+    assert src.KimiK3 is KimiK3
     assert not hasattr(src, "KimiK3Mini")
 
 

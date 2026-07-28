@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import weakref
+
 import torch
 import torch.nn as nn
 
@@ -29,6 +31,8 @@ class KimiMTPHead(nn.Module):
         config: KimiMTPConfig,
         input_embeddings: nn.Embedding,
         lm_head: nn.Linear,
+        *,
+        register_shared_modules: bool = True,
     ):
         super().__init__()
         self.config = config
@@ -42,8 +46,17 @@ class KimiMTPHead(nn.Module):
             or lm_head.out_features != config.vocab_size
         ):
             raise ValueError("lm_head dimensions do not match config")
-        self.input_embeddings = input_embeddings
-        self.lm_head = lm_head
+        self._register_shared_modules = register_shared_modules
+        if register_shared_modules:
+            self._registered_input_embeddings = input_embeddings
+            self._registered_lm_head = lm_head
+        else:
+            object.__setattr__(
+                self,
+                "_input_embeddings_ref",
+                weakref.ref(input_embeddings),
+            )
+            object.__setattr__(self, "_lm_head_ref", weakref.ref(lm_head))
         self.fusion = (
             KimiMTPFusion(
                 config.d_model,
@@ -54,6 +67,40 @@ class KimiMTPHead(nn.Module):
             else None
         )
         self.block = KimiMTPBlock(config) if config.enabled else None
+
+    @property
+    def input_embeddings(self) -> nn.Embedding:
+        if self._register_shared_modules:
+            return self._registered_input_embeddings
+        module = self._input_embeddings_ref()
+        if module is None:
+            raise RuntimeError("shared input embeddings are no longer alive")
+        return module
+
+    @property
+    def lm_head(self) -> nn.Linear:
+        if self._register_shared_modules:
+            return self._registered_lm_head
+        module = self._lm_head_ref()
+        if module is None:
+            raise RuntimeError("shared LM head is no longer alive")
+        return module
+
+    def set_shared_modules(
+        self,
+        input_embeddings: nn.Embedding,
+        lm_head: nn.Linear,
+    ) -> None:
+        if self._register_shared_modules:
+            self._registered_input_embeddings = input_embeddings
+            self._registered_lm_head = lm_head
+        else:
+            object.__setattr__(
+                self,
+                "_input_embeddings_ref",
+                weakref.ref(input_embeddings),
+            )
+            object.__setattr__(self, "_lm_head_ref", weakref.ref(lm_head))
 
     def get_input_embeddings(self) -> nn.Embedding:
         return self.input_embeddings

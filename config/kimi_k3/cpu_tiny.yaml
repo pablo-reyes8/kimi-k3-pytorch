@@ -1,0 +1,36 @@
+model:
+  architecture: kimi_k3
+  vocab_size: 128
+  d_model: 16
+  tie_word_embeddings: true
+  pad_token_id: 0
+  bos_token_id: 1
+  eos_token_id: 2
+  image_token_id: 3
+  video_token_id: 4
+  enable_vision: true
+  enable_mtp: true
+  backbone:
+    num_hybrid_groups: 1
+    attention_pattern: [kda, kda, kda, gated_mla]
+    add_final_gated_mla: true
+    attention_residual:
+      mode: block
+      sublayers_per_depth_block: 4
+    stable_latent_moe:
+      latent_dim: 8
+      num_shared_experts: 1
+      num_routed_experts: 4
+      routed_experts_per_token: 2
+  vision:
+    variant: moonvit
+    image_size: 16
+    patch_size: 4
+    embed_dim: 16
+    depth: 2
+    num_heads: 4
+    pixel_shuffle: true
+  mtp:
+    enabled: true
+    num_mtp_layers: 1
+    future_offset: 2

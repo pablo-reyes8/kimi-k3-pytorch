@@ -86,6 +86,18 @@ from .stable_latent_moe import (
     vectorized_sparse_dispatch,
 )
 from .kimi_block import KimiBlock, KimiBlockConfig
+from .kimi_k3_mini import KimiK3
+from .kimi_k3 import (
+    KimiK3Config,
+    KimiK3Output,
+    KimiK3VisionOutput,
+    MultimodalMetadata,
+    ParameterReport,
+    VisionProjectorConfig,
+    VisualPlaceholderComposer,
+    kimi_k3_canonical_config,
+    kimi_k3_cpu_tiny_config,
+)
 from .mtp import (
     DraftFeatureProvider,
     KimiMTPBlock,
@@ -181,6 +193,16 @@ __all__ = [
     "DraftFeatureProvider",
     "KimiBlock",
     "KimiBlockConfig",
+    "KimiK3",
+    "KimiK3Config",
+    "KimiK3Output",
+    "KimiK3VisionOutput",
+    "MultimodalMetadata",
+    "ParameterReport",
+    "VisionProjectorConfig",
+    "VisualPlaceholderComposer",
+    "kimi_k3_canonical_config",
+    "kimi_k3_cpu_tiny_config",
     "KimiMTPBlock",
     "KimiMTPConfig",
     "KimiMTPFusion",

@@ -1,0 +1,32 @@
+# Metadata-only representation. Never instantiate this profile in CPU tests.
+model:
+  architecture: kimi_k3
+  vocab_size: 160000
+  d_model: 7168
+  tie_word_embeddings: true
+  backbone:
+    num_hybrid_groups: 23
+    attention_pattern: [kda, kda, kda, gated_mla]
+    add_final_gated_mla: true
+    num_kda_layers: 69
+    num_gated_mla_layers: 24
+    num_stable_latent_moe_layers: 93
+    attention_residual:
+      mode: block
+      transformer_layers_per_depth_block: 12
+      sublayers_per_depth_block: 24
+      target_num_depth_blocks: 8
+    stable_latent_moe:
+      latent_dim: 3584
+      num_shared_experts: 2
+      num_routed_experts: 896
+      routed_experts_per_token: 16
+  vision:
+    variant: moonvit
+    patch_size: 14
+    depth: 27
+    pixel_shuffle: true
+  mtp:
+    enabled: true
+    num_mtp_layers: 1
+    future_offset: 2
