@@ -5,6 +5,7 @@ import pytest
 from training import (
     CheckpointConfig,
     ContextCurriculum,
+    ContextCurriculumConfig,
     ContextStage,
     OptimizerConfig,
     SchedulerConfig,
@@ -51,17 +52,30 @@ def test_trainer_state_roundtrip_ignores_future_unknown_fields():
 
 def test_context_curriculum_boundaries_validation_and_roundtrip():
     curriculum = ContextCurriculum(
-        [ContextStage(0, 8), ContextStage(2, 16), ContextStage(5, 32)]
+        ContextCurriculumConfig(
+            enabled=True,
+            stages=(
+                ContextStage(8, 2),
+                ContextStage(16, 5),
+                ContextStage(32, None),
+            ),
+        ),
+        training_max_seq_len=32,
+        model_max_seq_len=32,
     )
-    assert curriculum.update(0).context_length == 8
-    assert curriculum.update(2).context_length == 16
+    assert not curriculum.update(0)
+    assert curriculum.current_max_seq_len() == 8
+    assert curriculum.update(2)
+    assert curriculum.current_max_seq_len() == 16
     curriculum.validate_sequence_length(16)
     with pytest.raises(ValueError, match="exceeds"):
         curriculum.validate_sequence_length(17)
 
     state = curriculum.state_dict()
     restored = ContextCurriculum(
-        [ContextStage(0, 8), ContextStage(2, 16), ContextStage(5, 32)]
+        curriculum.config,
+        training_max_seq_len=32,
+        model_max_seq_len=32,
     )
     restored.load_state_dict(state)
     assert restored.stage_index == 1
@@ -70,11 +84,11 @@ def test_context_curriculum_boundaries_validation_and_roundtrip():
 @pytest.mark.parametrize(
     "stages",
     [
-        [ContextStage(1, 8)],
-        [ContextStage(0, 8), ContextStage(0, 16)],
-        [ContextStage(0, 16), ContextStage(2, 8)],
+        [ContextStage(8, 1), ContextStage(8, None)],
+        [ContextStage(8, 4), ContextStage(16, 2), ContextStage(32, None)],
+        [ContextStage(16, 2), ContextStage(8, None)],
     ],
 )
 def test_context_curriculum_rejects_invalid_stage_layout(stages):
     with pytest.raises(ValueError):
-        ContextCurriculum(stages)
+        ContextCurriculumConfig(enabled=True, stages=tuple(stages))

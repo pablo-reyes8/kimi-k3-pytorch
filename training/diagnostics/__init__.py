@@ -21,6 +21,7 @@ from .reducers import (
     tensor_stats,
 )
 from .representation_metrics import compute_representation_metrics
+from .vision_metrics import compute_vision_metrics
 
 __all__ = [
     "AlertManager",
@@ -38,6 +39,7 @@ __all__ = [
     "compute_moe_metrics",
     "compute_mtp_metrics",
     "compute_representation_metrics",
+    "compute_vision_metrics",
     "cosine",
     "diagnostic_family",
     "ensure_plain_scalars",

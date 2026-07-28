@@ -144,11 +144,38 @@ class KimiTrainingPrinter:
                 ("diagnostics/degradation_level", "Degraded mode"),
             ),
         )
+        self.block(
+            "Progressive context",
+            metrics,
+            (
+                ("context/stage_index", "Stage"),
+                ("context/max_seq_len", "Active max sequence"),
+                ("context/tokens_seen", "Tokens seen"),
+                ("context/transition_count", "Transitions"),
+                ("context/valid_tokens_per_step", "Valid tokens / step"),
+                ("context/padding_fraction", "Padding fraction"),
+                ("context/tokens_per_second", "Context tokens / second"),
+                ("context/step_time_seconds", "Context step time (s)"),
+                ("context/peak_memory_mb", "Peak memory (MB)"),
+                ("context/old_max_seq_len", "Previous max sequence"),
+                ("context/new_max_seq_len", "New max sequence"),
+                (
+                    "context/tokens_seen_at_transition",
+                    "Tokens at transition",
+                ),
+                (
+                    "context/loss_before_transition",
+                    "Loss before transition",
+                ),
+            ),
+        )
         architecture_rows = []
         for name in sorted(metrics):
             if any(
                 name.startswith(prefix)
-                for prefix in ("attnres/", "kda/", "mla/", "moe/", "mtp/")
+                for prefix in (
+                    "attnres/", "kda/", "mla/", "moe/", "mtp/", "vision/"
+                )
             ):
                 if name.endswith(
                     (
@@ -158,6 +185,7 @@ class KimiTrainingPrinter:
                         "dead_expert_fraction_batch",
                         "routed_to_total_ratio",
                         "loss",
+                        "hidden_rms",
                     )
                 ):
                     architecture_rows.append((name, name))

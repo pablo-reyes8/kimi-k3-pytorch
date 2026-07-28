@@ -29,6 +29,7 @@ class TrainingConfig:
     prediction_every_epochs: int | None = 1
     seed: int = 1337
     deterministic: bool = False
+    max_seq_len: int = 8192
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -39,6 +40,8 @@ class TrainingConfig:
             raise ValueError("precision must be 'fp32', 'bf16', or 'fp16'")
         if self.grad_clip_norm is not None and self.grad_clip_norm <= 0:
             raise ValueError("grad_clip_norm must be None or positive")
+        if self.max_seq_len <= 0:
+            raise ValueError("max_seq_len must be positive")
         for name in (
             "max_batches_per_epoch",
             "max_eval_batches",

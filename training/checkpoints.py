@@ -82,6 +82,9 @@ def save_checkpoint(
         "curriculum_state_dict": (
             curriculum.state_dict() if curriculum is not None else None
         ),
+        "context_curriculum": (
+            curriculum.state_dict() if curriculum is not None else None
+        ),
         "metadata": metadata or {},
         "diagnostics_state_dict": (
             diagnostics.state_dict() if diagnostics is not None else None
@@ -129,9 +132,15 @@ def load_checkpoint(
         trainer_state.load_state_dict(payload["trainer_state_dict"])
     if (
         curriculum is not None
-        and payload.get("curriculum_state_dict") is not None
+        and (
+            payload.get("context_curriculum") is not None
+            or payload.get("curriculum_state_dict") is not None
+        )
     ):
-        curriculum.load_state_dict(payload["curriculum_state_dict"])
+        curriculum.load_state_dict(
+            payload.get("context_curriculum")
+            or payload["curriculum_state_dict"]
+        )
     if (
         diagnostics is not None
         and payload.get("diagnostics_state_dict") is not None
@@ -145,7 +154,10 @@ def load_checkpoint(
         "training_config": payload.get("training_config"),
         "history": payload.get("history", {}),
         "trainer_state": payload.get("trainer_state_dict"),
-        "curriculum_state": payload.get("curriculum_state_dict"),
+        "curriculum_state": (
+            payload.get("context_curriculum")
+            or payload.get("curriculum_state_dict")
+        ),
         "metadata": payload.get("metadata", {}),
         "diagnostics_state": payload.get("diagnostics_state_dict"),
         "missing_keys": list(incompatible.missing_keys),

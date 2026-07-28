@@ -7,7 +7,17 @@ from .config import (
     SchedulerConfig,
     TrainingConfig,
 )
-from .curriculum import ContextCurriculum, ContextStage
+from .curriculum import (
+    ContextCurriculum,
+    ContextCurriculumConfig,
+    ContextCurriculumState,
+    ContextStage,
+    ContextTransition,
+    ProgressiveContextCollator,
+    ProgressiveContextCurriculum,
+    build_context_loader,
+    truncate_batch_to_context,
+)
 from .eval_one_epoch import eval_one_epoch
 from .diagnostics import DiagnosticsConfig, KimiDiagnosticCollector, KimiTrainingPrinter
 from .logger import JSONLLogger, MemoryLogger, TrainingLogger
@@ -23,7 +33,10 @@ from .train_one_epoch import train_one_epoch
 __all__ = [
     "CheckpointConfig",
     "ContextCurriculum",
+    "ContextCurriculumConfig",
+    "ContextCurriculumState",
     "ContextStage",
+    "ContextTransition",
     "DiagnosticsConfig",
     "JSONLLogger",
     "KimiDiagnosticCollector",
@@ -33,6 +46,8 @@ __all__ = [
     "MoEController",
     "OptimizerConfig",
     "PredictionConfig",
+    "ProgressiveContextCollator",
+    "ProgressiveContextCurriculum",
     "SchedulerConfig",
     "TrainerState",
     "TrainingConfig",
@@ -42,6 +57,7 @@ __all__ = [
     "build_adamw_parameter_groups",
     "build_kimi_optimizer",
     "build_parameter_registry",
+    "build_context_loader",
     "build_warmup_cosine_scheduler",
     "eval_one_epoch",
     "load_checkpoint",
@@ -52,4 +68,5 @@ __all__ = [
     "train_kimiK3",
     "train_kimi_k3",
     "train_one_epoch",
+    "truncate_batch_to_context",
 ]

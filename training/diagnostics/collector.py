@@ -16,6 +16,7 @@ from .moe_metrics import compute_moe_metrics
 from .mtp_metrics import compute_mtp_metrics
 from .optimizer_metrics import ParameterUpdateMonitor
 from .representation_metrics import compute_representation_metrics
+from .vision_metrics import compute_vision_metrics
 from .reducers import scalar
 
 
@@ -102,6 +103,12 @@ class KimiDiagnosticCollector:
 
         level = self.active_level
         if level in {"standard", "deep"}:
+            metrics.update(
+                compute_vision_metrics(
+                    getattr(output, "vision_outputs", None),
+                    getattr(output, "multimodal_metadata", None),
+                )
+            )
             backbone = getattr(output, "backbone_diagnostics", None) or {}
             layers = tuple(backbone.get("layers", ()))
             sampled = self._sample_layer_indices(len(layers), step)

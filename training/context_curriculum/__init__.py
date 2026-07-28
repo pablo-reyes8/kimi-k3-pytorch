@@ -1,20 +1,13 @@
-"""Backward-compatible imports for the token-based context curriculum."""
-
-from .context_curriculum import (
-    ContextCurriculumConfig,
+from .batching import ProgressiveContextCollator, truncate_batch_to_context
+from .config import ContextCurriculumConfig, ContextStage
+from .curriculum import (
     ContextCurriculumState,
-    ContextStage,
     ContextTransition,
-    ProgressiveContextCollator,
     ProgressiveContextCurriculum,
-    build_context_loader,
-    truncate_batch_to_context,
 )
-
-ContextCurriculum = ProgressiveContextCurriculum
+from .loader import build_context_loader
 
 __all__ = [
-    "ContextCurriculum",
     "ContextCurriculumConfig",
     "ContextCurriculumState",
     "ContextStage",

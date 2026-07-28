@@ -4,6 +4,7 @@ training:
   gradient_accumulation_steps: 1
   grad_clip_norm: 1.0
   log_every_steps: 1
+  max_seq_len: 8192
 
 optimizer:
   kind: per_head_muon_adamw
@@ -43,3 +44,16 @@ diagnostics:
   max_diagnostic_time_fraction: 0.05
   max_persistent_gpu_bytes: 16777216
   alert_patience_steps: 5
+
+context_curriculum:
+  enabled: false
+  stages:
+    - {max_seq_len: 512, until_tokens: 20000000}
+    - {max_seq_len: 1024, until_tokens: 40000000}
+    - {max_seq_len: 2048, until_tokens: 60000000}
+    - {max_seq_len: 4096, until_tokens: 80000000}
+    - {max_seq_len: 8192, until_tokens: null}
+  transition_unit: tokens
+  reset_dataloader_on_transition: true
+  preserve_optimizer_state: true
+  preserve_scheduler_state: true

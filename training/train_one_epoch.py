@@ -18,6 +18,7 @@ from .loss_accounting import (
 )
 from .model_call import call_model
 from .diagnostics.loss_metrics import compute_loss_metrics
+from .context_curriculum import truncate_batch_to_context
 from .state import TrainerState
 
 
@@ -59,7 +60,12 @@ def train_one_epoch(
     logger=None,
     on_optimizer_step: Callable[[dict[str, float]], None] | None = None,
     diagnostics=None,
-) -> Dict[str, float]:
+    max_seq_len: int | None = None,
+    context_ignore_index: int = -100,
+    image_token_id: int | None = None,
+    video_token_id: int | None = None,
+    stop_on_context_transition: bool = True,
+) -> Dict[str, Any]:
     """Train a complete epoch while accumulating exact token loss sums.
 
     Kimi NTP and MTP sums are normalized independently at the end of each
@@ -90,11 +96,16 @@ def train_one_epoch(
     window_forward_time = 0.0
     window_data_time = 0.0
     window_samples = 0
+    window_token_capacity = 0
+    window_padding_tokens = 0
     diagnostic_metrics_pending: dict[str, float] = {}
     diagnostic_alerts_pending = ()
     window_started = None
     started = time.perf_counter()
     previous_batch_completed = started
+    transition_event: dict[str, float] | None = None
+    transition_pending = False
+    stop_requested = False
 
     def begin_window() -> None:
         nonlocal window_started
@@ -114,6 +125,9 @@ def train_one_epoch(
         nonlocal diagnostic_metrics_pending, diagnostic_alerts_pending
         nonlocal window_forward_time, window_samples
         nonlocal window_data_time
+        nonlocal window_token_capacity, window_padding_tokens
+        nonlocal transition_event
+        nonlocal transition_pending, stop_requested
 
         objective, window_stats = combine_window_loss(window)
         if not math.isfinite(float(objective.detach().item())):
@@ -177,8 +191,15 @@ def train_one_epoch(
             if moe_controller is not None:
                 moe_controller.commit()
             if curriculum is not None:
-                curriculum.update(state.optimizer_step)
+                transitioned = curriculum.update(state.tokens_seen)
                 state.curriculum_stage_index = curriculum.stage_index
+                if transitioned:
+                    transition = curriculum.last_transition
+                    transition_event = {
+                        **transition.to_dict(),
+                        "loss_before_transition": float(window_stats["loss"]),
+                    }
+                    transition_pending = True
         else:
             skipped_steps += 1
             state.skipped_optimizer_steps += 1
@@ -277,6 +298,19 @@ def train_one_epoch(
                 if device.type == "cuda"
                 else 0.0
             ),
+            "context/valid_tokens_per_step": float(window_stats["tokens"]),
+            "context/padding_fraction": (
+                window_padding_tokens / max(window_token_capacity, 1)
+            ),
+            "context/tokens_per_second": (
+                window_stats["tokens"] / max(step_time_ms / 1000.0, 1e-12)
+            ),
+            "context/step_time_seconds": step_time_ms / 1000.0,
+            "context/peak_memory_mb": (
+                torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+                if device.type == "cuda"
+                else 0.0
+            ),
             **diagnostic_metrics_pending,
             **optimizer_metrics,
             **after_optimizer_metrics,
@@ -296,6 +330,34 @@ def train_one_epoch(
                 step_metrics["lr/muon"] = float(
                     optimizer_report.muon_lr
                 )
+        if curriculum is not None:
+            step_metrics.update(curriculum.metrics())
+        elif max_seq_len is not None:
+            step_metrics.update(
+                {
+                    "context/stage_index": 0.0,
+                    "context/max_seq_len": float(max_seq_len),
+                    "context/tokens_seen": float(state.tokens_seen),
+                    "context/transition_count": 0.0,
+                }
+            )
+        if transition_pending:
+            step_metrics.update(
+                {
+                    "context/old_max_seq_len": float(
+                        transition_event["old_max_seq_len"]
+                    ),
+                    "context/new_max_seq_len": float(
+                        transition_event["new_max_seq_len"]
+                    ),
+                    "context/tokens_seen_at_transition": float(
+                        transition_event["tokens_seen_at_transition"]
+                    ),
+                    "context/loss_before_transition": float(
+                        transition_event["loss_before_transition"]
+                    ),
+                }
+            )
         if (
             logger is not None
             and log_every is not None
@@ -306,24 +368,60 @@ def train_one_epoch(
         if on_optimizer_step is not None:
             step_metrics["_alerts"] = diagnostic_alerts_pending
             on_optimizer_step(step_metrics)
+        if transition_pending and stop_on_context_transition:
+            stop_requested = True
+        transition_pending = False
         window.clear()
         diagnostic_metrics_pending = {}
         diagnostic_alerts_pending = ()
         window_forward_time = 0.0
         window_data_time = 0.0
         window_samples = 0
+        window_token_capacity = 0
+        window_padding_tokens = 0
 
     try:
         for batch_index, raw_batch in enumerate(dataloader):
             window_data_time += time.perf_counter() - previous_batch_completed
             if max_batches is not None and batch_index >= max_batches:
                 break
-            batch = move_batch_to_device(normalize_lm_batch(raw_batch), device)
+            batch = normalize_lm_batch(raw_batch)
+            active_max_seq_len = (
+                curriculum.current_max_seq_len()
+                if curriculum is not None
+                else max_seq_len
+            )
+            if active_max_seq_len is not None:
+                batch, context_batch_metrics = truncate_batch_to_context(
+                    batch,
+                    active_max_seq_len,
+                    ignore_index=context_ignore_index,
+                    image_token_id=image_token_id,
+                    video_token_id=video_token_id,
+                )
+            else:
+                input_ids = batch["input_ids"]
+                attention_mask = batch.get("attention_mask")
+                capacity = int(input_ids.numel())
+                valid = (
+                    capacity
+                    if attention_mask is None
+                    else int(attention_mask.sum().item())
+                )
+                context_batch_metrics = {
+                    "valid_tokens": float(valid),
+                    "padding_fraction": 1.0 - valid / max(capacity, 1),
+                    "sequence_length": float(input_ids.shape[1]),
+                }
+            batch = move_batch_to_device(batch, device)
             if not window:
                 begin_window()
             if curriculum is not None:
                 curriculum.validate_sequence_length(
                     int(batch["input_ids"].shape[1])
+                )
+                curriculum.validate_valid_tokens(
+                    batch["attention_mask"].sum(dim=1)
                 )
 
             first_in_window = not window
@@ -351,6 +449,11 @@ def train_one_epoch(
 
             window.append(contribution)
             window_samples += _batch_size(batch)
+            capacity = int(batch["input_ids"].numel())
+            window_token_capacity += capacity
+            window_padding_tokens += int(
+                round(context_batch_metrics["padding_fraction"] * capacity)
+            )
             all_contributions.append(
                 LossContribution(
                     ntp_loss_sum=contribution.ntp_loss_sum.detach(),
@@ -376,6 +479,8 @@ def train_one_epoch(
 
             if len(window) == grad_accum_steps:
                 finish_window()
+                if stop_requested:
+                    break
 
         if window:
             finish_window()
@@ -408,4 +513,5 @@ def train_one_epoch(
         "grad_norm_post_clip": grad_norm_post_total / max(grad_norm_count, 1),
         "epoch_time_seconds": float(elapsed),
         "tokens_per_second": float(epoch_stats["tokens"] / max(elapsed, 1e-12)),
+        "context_transition": transition_event,
     }
