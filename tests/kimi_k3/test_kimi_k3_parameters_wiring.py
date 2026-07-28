@@ -87,13 +87,13 @@ def test_main_lm_head_receives_exact_final_normalized_hidden(
     assert received[0].data_ptr() == output.last_hidden_state.data_ptr()
 
 
-def test_architecture_output_has_no_loss_contract(
+def test_inference_output_has_empty_loss_contract(
     tiny_kimi_model,
     text_batch,
 ):
     ids, mask = text_batch
     with torch.inference_mode():
         output = tiny_kimi_model(ids, mask)
-    assert not hasattr(output, "loss")
-    assert not hasattr(output, "ntp_loss")
-    assert not hasattr(output, "mtp_loss")
+    assert output.loss is None
+    assert output.ntp_loss is None
+    assert output.mtp_loss is None

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import torch
-import torch.nn.functional as F
+from src.loss import MultiTokenPredictionLoss
 
 
 def masked_mtp_cross_entropy(
@@ -11,17 +11,13 @@ def masked_mtp_cross_entropy(
     target_ids: torch.Tensor,
     valid_mask: torch.Tensor,
 ) -> torch.Tensor:
-    if logits.ndim != 3:
-        raise ValueError("logits must have shape [B,T,V]")
-    if target_ids.shape != logits.shape[:2]:
-        raise ValueError("target_ids shape must match logits [B,T]")
-    if valid_mask.shape != target_ids.shape:
-        raise ValueError("valid_mask shape must match target_ids")
-    if valid_mask.dtype != torch.bool:
-        raise TypeError("valid_mask must be boolean")
-    if torch.any(valid_mask):
-        return F.cross_entropy(logits[valid_mask].float(), target_ids[valid_mask])
-    return logits.sum() * 0.0
+    return MultiTokenPredictionLoss(
+        zero_valid_policy="connected_zero"
+    )(
+        logits,
+        target_ids,
+        mtp_loss_mask=valid_mask,
+    ).loss
 
 
 def combine_ntp_mtp_losses(

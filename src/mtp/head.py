@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from src.hybrid_backbone import HybridBackboneCache
+from src.loss import MultiTokenPredictionLoss
 
 from .alignment import (
     MTPTrainingView,
@@ -17,7 +18,6 @@ from .alignment import (
 from .block import KimiMTPBlock
 from .config import KimiMTPConfig
 from .fusion import KimiMTPFusion
-from .losses import masked_mtp_cross_entropy
 from .outputs import (
     KimiMTPOutput,
     MTPDiagnostics,
@@ -69,6 +69,10 @@ class KimiMTPHead(nn.Module):
             else None
         )
         self.block = KimiMTPBlock(config) if config.enabled else None
+        self.loss_fn = MultiTokenPredictionLoss(
+            ignore_index=config.ignore_index,
+            zero_valid_policy="connected_zero",
+        )
 
     @property
     def input_embeddings(self) -> nn.Embedding:
@@ -215,6 +219,7 @@ class KimiMTPHead(nn.Module):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         labels: torch.Tensor | None = None,
+        compute_loss: bool = True,
         segment_ids: torch.Tensor | None = None,
         return_logits: bool | None = None,
         return_hidden_states: bool = False,
@@ -247,8 +252,13 @@ class KimiMTPHead(nn.Module):
         )
         logits = self.lm_head(hidden_states)
         loss = (
-            masked_mtp_cross_entropy(logits, view.target_ids, view.valid_mask)
-            if labels is not None
+            self.loss_fn(
+                logits,
+                view.target_ids,
+                mtp_loss_mask=view.valid_mask,
+                future_offsets=(self.config.future_offset,),
+            ).loss
+            if labels is not None and compute_loss
             else None
         )
         diagnostics = (

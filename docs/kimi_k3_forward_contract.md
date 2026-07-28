@@ -27,8 +27,10 @@ The main output shape is `[B, T, vocab_size]`. MTP, when explicitly requested
 with `use_mtp=True`, returns `[B, max(T-2, 0), vocab_size]`. It is forbidden in
 prefill/decode and cannot feed back into the main logits.
 
-This phase computes no NTP, MTP or total loss. Objective construction belongs
-to the next training phase.
+Phase 10 computed no NTP, MTP or total loss. Since phase 11, calls without
+labels preserve that inference contract, while labeled pretraining calls
+delegate to `src.loss.KimiPretrainingLoss`. SFT, RL, and MOPD remain explicit
+trainer-side calls through `KimiTrainingObjective`.
 
 ## Multimodal engineering decisions
 

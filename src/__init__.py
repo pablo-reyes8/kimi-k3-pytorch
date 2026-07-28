@@ -125,6 +125,20 @@ from .vision import (
     VisionEncoderConfig,
     VisionProjector,
 )
+from .loss import (
+    KimiLossConfig,
+    KimiPolicyOptimizationLoss,
+    KimiPretrainingLoss,
+    KimiRewardComposer,
+    KimiTrainingObjective,
+    KimiTrainingPhase,
+    MultiTeacherOnPolicyDistillationLoss,
+    MultiTokenPredictionLoss,
+    NextTokenCrossEntropyLoss,
+    SFTComponent,
+    SFTTrajectoryCrossEntropyLoss,
+    gather_token_logprobs,
+)
 
 __all__ = [
     "BaselineCausalLM",
@@ -236,4 +250,16 @@ __all__ = [
     "SwinVisionConfig",
     "VisionEncoderConfig",
     "VisionProjector",
+    "KimiLossConfig",
+    "KimiPolicyOptimizationLoss",
+    "KimiPretrainingLoss",
+    "KimiRewardComposer",
+    "KimiTrainingObjective",
+    "KimiTrainingPhase",
+    "MultiTeacherOnPolicyDistillationLoss",
+    "MultiTokenPredictionLoss",
+    "NextTokenCrossEntropyLoss",
+    "SFTComponent",
+    "SFTTrajectoryCrossEntropyLoss",
+    "gather_token_logprobs",
 ]

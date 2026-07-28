@@ -4,8 +4,9 @@ Configuration, typed outputs, visual composition and validation live in
 ``src.kimi_k3``. This file contains only the high-level ``KimiK3`` module so
 the complete forward can be audited in one place.
 
-Phase 10 closes the architecture and returns vocabulary logits. Training
-objectives and losses are intentionally deferred to the next phase.
+Phase 10 closes the architecture and returns vocabulary logits. Phase 11 adds
+optional pretraining-loss delegation while keeping objective mathematics in
+the separate ``src.loss`` package.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from .kimi_k3.vision_integration import (
     prepare_multimodal_embeddings,
 )
 from .mtp import KimiMTPHead
+from .loss import KimiPretrainingLoss
 from .vision import SpatialTokenPixelShuffle, VisionProjector
 
 
@@ -132,6 +134,16 @@ class KimiK3(nn.Module):
             if config.enable_mtp
             else None
         )
+        self.pretraining_loss = KimiPretrainingLoss(
+            lambda_mtp=(
+                config.mtp.loss_weight
+                if config.enable_mtp and config.mtp is not None
+                else 0.0
+            ),
+            ignore_index=(
+                config.mtp.ignore_index if config.mtp is not None else -100
+            ),
+        )
         if config.freeze_vision_encoder and self.vision_encoder is not None:
             self.vision_encoder.requires_grad_(False)
 
@@ -220,6 +232,11 @@ class KimiK3(nn.Module):
         use_cache: bool = False,
         cache_position: torch.Tensor | None = None,
         use_mtp: bool = False,
+        labels: torch.Tensor | None = None,
+        training_phase: str | None = None,
+        loss_mask: torch.Tensor | None = None,
+        boundary_mask: torch.Tensor | None = None,
+        token_weights: torch.Tensor | None = None,
         output_hidden_states: bool | None = None,
         output_attentions: bool | None = None,
         output_router_diagnostics: bool | None = None,
@@ -237,7 +254,9 @@ class KimiK3(nn.Module):
         5. project the final normalized hidden state to vocabulary logits;
         6. optionally run the independent full-sequence MTP branch.
 
-        This phase returns scores and state only. It computes no loss.
+        Calls without ``labels`` return scores and state only. Calls with
+        labels delegate pretraining CE/MTP to :mod:`src.loss`; SFT, RL, and
+        MOPD remain explicit trainer-side objectives.
         """
         if position_ids is not None:
             raise ValueError(
@@ -253,6 +272,17 @@ class KimiK3(nn.Module):
             pad_token_id=self.config.pad_token_id,
         )
         mode = resolve_execution_mode(cache, use_cache, tokens)
+        if training_phase not in (None, "pretrain"):
+            raise ValueError(
+                "KimiK3.forward only delegates pretraining loss; SFT/RL/MOPD "
+                "must call KimiTrainingObjective explicitly"
+            )
+        if training_phase is not None and labels is None:
+            raise ValueError("training_phase requires labels")
+        if labels is not None and mode != "full":
+            raise ValueError("training losses cannot run during prefill or decode")
+        if labels is not None and labels.shape != attention_mask.shape:
+            raise ValueError("labels must have shape [B,T]")
         if mode == "decode" and (
             pixel_values is not None or video_values is not None
         ):
@@ -351,10 +381,43 @@ class KimiK3(nn.Module):
                 final_hidden_state,
                 input_ids,
                 attention_mask=attention_mask,
+                labels=labels,
+                compute_loss=False,
                 return_logits=True,
                 return_diagnostics=router_flag or attnres_flag,
             )
             if use_mtp
+            else None
+        )
+
+        # 6) Loss math is delegated. Phase-9 owns MTP target alignment; this
+        # orchestrator only forwards the exact training view it produced.
+        loss_output = (
+            self.pretraining_loss(
+                logits=logits,
+                labels=labels,
+                attention_mask=attention_mask,
+                loss_mask=loss_mask,
+                boundary_mask=boundary_mask,
+                token_weights=token_weights,
+                mtp_logits=None if mtp_output is None else mtp_output.logits,
+                mtp_labels=(
+                    None
+                    if mtp_output is None
+                    else mtp_output.training_view.target_ids
+                ),
+                mtp_loss_mask=(
+                    None
+                    if mtp_output is None
+                    else mtp_output.training_view.valid_mask
+                ),
+                future_offsets=(
+                    None
+                    if mtp_output is None
+                    else (self.config.mtp.future_offset,)
+                ),
+            )
+            if labels is not None
             else None
         )
 
@@ -373,6 +436,10 @@ class KimiK3(nn.Module):
             ),
             vision_outputs=vision_outputs,
             multimodal_metadata=multimodal_metadata,
+            loss=None if loss_output is None else loss_output.loss,
+            ntp_loss=None if loss_output is None else loss_output.ntp,
+            mtp_loss=None if loss_output is None else loss_output.mtp,
+            loss_output=loss_output,
         )
         use_dict = (
             self.config.return_dict if return_dict is None else return_dict

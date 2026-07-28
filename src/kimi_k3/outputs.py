@@ -8,6 +8,7 @@ import torch
 
 from src.hybrid_backbone import HybridBackboneCache
 from src.mtp import MTPDiagnostics
+from src.loss import KimiPretrainingLossOutput, MTPLossOutput, TokenCrossEntropyOutput
 from src.vision import VisionEncoderOutput
 
 
@@ -33,7 +34,7 @@ class KimiK3VisionOutput:
 
 @dataclass
 class KimiK3Output:
-    """Architecture output. Losses intentionally belong to the next phase."""
+    """Architecture output with an optional modular pretraining objective."""
 
     logits: torch.Tensor
     last_hidden_state: torch.Tensor
@@ -45,6 +46,10 @@ class KimiK3Output:
     mtp_diagnostics: MTPDiagnostics | None = None
     vision_outputs: KimiK3VisionOutput | None = None
     multimodal_metadata: MultimodalMetadata | None = None
+    loss: torch.Tensor | None = None
+    ntp_loss: TokenCrossEntropyOutput | None = None
+    mtp_loss: MTPLossOutput | None = None
+    loss_output: KimiPretrainingLossOutput | None = None
 
     def to_tuple(self) -> tuple:
         return (

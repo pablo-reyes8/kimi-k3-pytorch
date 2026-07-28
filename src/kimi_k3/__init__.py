@@ -14,6 +14,18 @@ from .outputs import (
     MultimodalMetadata,
     ParameterReport,
 )
+from .losses import (
+    KimiLossConfig,
+    KimiPolicyOptimizationLoss,
+    KimiPretrainingLoss,
+    KimiTrainingObjective,
+    KimiTrainingPhase,
+    MultiTeacherOnPolicyDistillationLoss,
+    MultiTokenPredictionLoss,
+    NextTokenCrossEntropyLoss,
+    SFTTrajectoryCrossEntropyLoss,
+    gather_token_logprobs,
+)
 
 __all__ = [
     "KimiK3Config",
@@ -26,4 +38,14 @@ __all__ = [
     "VisualPlaceholderComposer",
     "kimi_k3_canonical_config",
     "kimi_k3_cpu_tiny_config",
+    "KimiLossConfig",
+    "KimiPolicyOptimizationLoss",
+    "KimiPretrainingLoss",
+    "KimiTrainingObjective",
+    "KimiTrainingPhase",
+    "MultiTeacherOnPolicyDistillationLoss",
+    "MultiTokenPredictionLoss",
+    "NextTokenCrossEntropyLoss",
+    "SFTTrajectoryCrossEntropyLoss",
+    "gather_token_logprobs",
 ]

@@ -3,7 +3,7 @@
 A research-oriented, pure-PyTorch, reduced-scale implementation of the
 principal architectural mechanisms introduced or combined in Kimi K3.
 
-## Current status: Phase 10
+## Current status: Phase 11
 
 The repository now contains the research-scale text backbone through Attention
 Residuals:
@@ -32,10 +32,14 @@ Generic Transformer, data, and training infrastructure was adapted from the
 author's MIT-licensed DeepSeek-V4 Mini project. There are no runtime imports
 from that repository.
 
-## Batch contract
+## Training-objective contract
 
-Phase 10 is architecture-only: `KimiK3` returns logits and typed state but
-does not compute losses. Loss contracts will be added with the training chunk.
+`KimiK3` returns logits and typed state during inference. When pretraining
+labels are supplied it delegates to the modular phase-11 objective; SFT, RL,
+and MOPD remain explicit trainer-side calls. The five public objectives live
+under `src/loss/`: NTP, MTP, trajectory SFT, Kimi policy optimization, and
+multi-teacher on-policy distillation. Quantile Balancing remains router state,
+not an auxiliary loss.
 
 ## Smoke test
 
@@ -52,3 +56,5 @@ The MTP alignment, architecture, checkpoint migration and deferred EAGLE-3
 scope are documented in [`docs/mtp_phase_report.md`](docs/mtp_phase_report.md).
 The master forward contract is documented in
 [`docs/kimi_k3_forward_contract.md`](docs/kimi_k3_forward_contract.md).
+The phase-11 objective contract is documented in
+[`docs/kimi_k3_phase11_loss_contract.md`](docs/kimi_k3_phase11_loss_contract.md).

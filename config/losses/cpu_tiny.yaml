@@ -1,0 +1,14 @@
+# Project test values. These are not published Kimi K3 hyperparameters.
+ignore_index: -100
+label_smoothing: 0.0
+lambda_mtp: 0.1
+sft_reduction: token_mean
+
+rl_ratio_clip_min: 0.8
+rl_ratio_clip_max: 1.2
+rl_log_ratio_l2_coef: 0.1
+rl_normalize_advantages: false
+
+mopd_reward_clip_max: 2.0
+mopd_mode: sampled_token_pg
+compute_loss_in_fp32: true
