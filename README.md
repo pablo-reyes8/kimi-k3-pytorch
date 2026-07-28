@@ -32,3 +32,6 @@ python -m scripts.cpu_smoke_train
 ```
 
 The synthetic retrieval data is self-contained and requires no downloads.
+
+The full testing philosophy and invariant matrix are documented in
+[`docs/testing.md`](docs/testing.md).

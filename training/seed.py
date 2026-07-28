@@ -1,9 +1,9 @@
 # ============================================================
 # Seed
 # ============================================================
-import torch 
-import random 
-import numpy as np 
+import torch
+import random
+import numpy as np
 
 def set_seed(seed: int, deterministic: bool = False) -> None:
     """

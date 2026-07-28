@@ -272,8 +272,10 @@ class SyntheticRetrievalDataset(Dataset):
         self.split = split
         self.num_examples = cfg.num_train_examples if split == "train" else cfg.num_val_examples
 
-        seed = cfg.seed if split == "train" else cfg.seed + 10_000
-        self.generator = SyntheticRetrievalGenerator(cfg, tokenizer, seed=seed)
+        self.base_seed = cfg.seed if split == "train" else cfg.seed + 10_000
+        self.generator = SyntheticRetrievalGenerator(
+            cfg, tokenizer, seed=self.base_seed
+        )
 
         self.pad_id = tokenizer.pad_id
         self.block_size = cfg.block_size
@@ -287,7 +289,14 @@ class SyntheticRetrievalDataset(Dataset):
         return ids + [self.pad_id] * (target_len - len(ids))
 
     def __getitem__(self, idx):
-        text, meta = self.generator.generate_text_example()
+        # Make this a true map-style dataset: an index always resolves to the
+        # same example, independently of access order and DataLoader workers.
+        generator = SyntheticRetrievalGenerator(
+            self.cfg,
+            self.tokenizer,
+            seed=self.base_seed + int(idx),
+        )
+        text, meta = generator.generate_text_example()
 
         # Need block_size + 1 because input is ids[:-1], label is ids[1:]
         ids = self.tokenizer.encode(text)
@@ -337,8 +346,10 @@ class SyntheticRetrievalMTPDataset(Dataset):
 
         self.num_examples = cfg.num_train_examples if split == "train" else cfg.num_val_examples
 
-        seed = cfg.seed if split == "train" else cfg.seed + 10_000
-        self.generator = SyntheticRetrievalGenerator(cfg, tokenizer, seed=seed)
+        self.base_seed = cfg.seed if split == "train" else cfg.seed + 10_000
+        self.generator = SyntheticRetrievalGenerator(
+            cfg, tokenizer, seed=self.base_seed
+        )
 
         self.pad_id = tokenizer.pad_id
         self.block_size = cfg.block_size
@@ -352,7 +363,12 @@ class SyntheticRetrievalMTPDataset(Dataset):
         return ids + [self.pad_id] * (target_len - len(ids))
 
     def __getitem__(self, idx):
-        text, meta = self.generator.generate_text_example()
+        generator = SyntheticRetrievalGenerator(
+            self.cfg,
+            self.tokenizer,
+            seed=self.base_seed + int(idx),
+        )
+        text, meta = generator.generate_text_example()
 
         # Need block_size + 1 + mtp_depth
         total_len = self.block_size + 1 + self.mtp_depth

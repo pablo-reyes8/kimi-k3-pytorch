@@ -32,7 +32,7 @@ runtime dependency on the DeepSeek-V4 Mini checkout.
 - Copied unchanged except conventional placement/filename: 3
 - Adapted or rebuilt: 18
 - Intentionally excluded from the active production path: 20
-- Unit tests: 9 passing
+- Unit tests: 351 passing, 7 hardware-gated CUDA skips
 - CPU smoke training: 8 batches and 8 optimizer steps, finite mean loss
 
 ## Intentionally excluded
@@ -51,6 +51,17 @@ without retaining the separate MTP path.
 - Hugging Face datasets/tokenizers remain optional dependencies and were not
   downloaded during Phase 0 verification.
 - No generation cache exists in the Phase 0 baseline.
+
+## Test-hardening follow-up
+
+The initial smoke suite was replaced with equation-level and behavioral tests
+for every active source, data, and training component. This work found and
+fixed two real Phase 0 defects:
+
+- synthetic map-style samples were stateful and ignored their dataset index;
+- gradient accumulation dropped a final partial accumulation window.
+
+See `docs/testing.md` for the required standard for future Kimi modules.
 
 ## Fidelity boundary
 
