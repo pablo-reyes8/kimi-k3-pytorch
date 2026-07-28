@@ -1,3 +1,5 @@
+"""MoonViT, hierarchical, and Swin vision encoder components."""
+
 from __future__ import annotations
 
 import torch

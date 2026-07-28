@@ -1,3 +1,5 @@
+"""Baseline transformer modules retained for controls and training infrastructure."""
+
 # ============================================================
 # Generic token embedding module adapted for Kimi-K3 Mini Phase 0
 # Token identity only — no positional embeddings

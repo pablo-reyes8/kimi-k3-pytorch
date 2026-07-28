@@ -1,3 +1,5 @@
+"""Stable LatentMoE routing, expert dispatch, and load-balancing components."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -6,6 +8,8 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class StableLatentMoEConfig:
+    """Configure Stable LatentMoE experts, routing, and quantile balancing."""
+
     d_model: int
     latent_dim: int
     num_shared_experts: int = 2

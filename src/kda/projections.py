@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 import math
@@ -15,6 +17,8 @@ from .utils import validate_attention_mask
 
 @dataclass
 class KDAProjectionResult:
+    """Projected KDA queries, keys, values, gates, and decay parameters."""
+
     q: torch.Tensor
     k: torch.Tensor
     v: torch.Tensor

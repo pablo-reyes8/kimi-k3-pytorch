@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 import torch

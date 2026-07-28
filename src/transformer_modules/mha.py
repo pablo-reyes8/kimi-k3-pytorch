@@ -1,3 +1,5 @@
+"""Baseline transformer modules retained for controls and training infrastructure."""
+
 # ============================================================
 # Causal multi-head attention baseline (not Kimi Gated MLA)
 # ============================================================

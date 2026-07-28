@@ -1,3 +1,5 @@
+"""MoonViT, hierarchical, and Swin vision encoder components."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -74,6 +76,8 @@ class HierarchicalTokenPool(nn.Module):
 
 @dataclass(frozen=True)
 class HierarchicalVisionConfig:
+    """Configuration for the hierarchical MoonViT ablation."""
+
     image_size: int | tuple[int, int] = 224
     patch_size: int | tuple[int, int] = 14
     in_channels: int = 3
@@ -227,4 +231,3 @@ class HierarchicalMoonViTEncoder(nn.Module):
             hidden_states=tuple(hidden_states) if hidden_states is not None else None,
             attentions=tuple(attentions) if attentions is not None else None,
         )
-

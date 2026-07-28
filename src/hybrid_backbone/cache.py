@@ -1,3 +1,5 @@
+"""Hybrid KDA/MLA backbone components and cache structures."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +15,7 @@ AttentionType = Literal["kda", "gated_mla"]
 
 
 def state_elements(state: KDAState | MLACache) -> int:
+    """Count tensor elements stored by one attention-layer cache."""
     if isinstance(state, MLACache):
         return state.latent_kv.numel()
     return sum(
@@ -28,6 +31,8 @@ def state_elements(state: KDAState | MLACache) -> int:
 
 @dataclass
 class HybridLayerCache:
+    """Pair one layer's attention type with its concrete recurrent cache."""
+
     attention_type: AttentionType
     state: KDAState | MLACache
 
@@ -59,6 +64,8 @@ class HybridLayerCache:
 
 @dataclass
 class HybridBackboneCache:
+    """Synchronized collection of KDA and MLA caches for incremental decoding."""
+
     layer_caches: tuple[HybridLayerCache, ...]
     sequence_length: int
 

@@ -1,3 +1,5 @@
+"""Multi-token prediction components used as an optional KimiK3 output head."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,6 +18,8 @@ _INTEGER_DTYPES = {
 
 @dataclass(frozen=True)
 class MTPTrainingView:
+    """Aligned context, future targets, and validity mask for one MTP depth."""
+
     source_hidden: torch.Tensor
     future_input_ids: torch.Tensor
     target_ids: torch.Tensor

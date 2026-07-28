@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,8 @@ from .utils import stack_sources
 
 @dataclass
 class BlockAttentionResidualState:
+    """Mutable hidden-state history used by block attention residuals."""
+
     embedding: torch.Tensor
     sublayers_per_depth_block: int
     completed_blocks: list[torch.Tensor] = field(default_factory=list)

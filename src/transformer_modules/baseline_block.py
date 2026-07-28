@@ -1,3 +1,5 @@
+"""Baseline transformer modules retained for controls and training infrastructure."""
+
 # ============================================================
 # Standard pre-norm Transformer control block
 # Pre-Norm Dense Transformer Block

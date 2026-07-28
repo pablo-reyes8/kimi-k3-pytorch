@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -7,6 +9,8 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class AttentionResidualConfig:
+    """Configure full or block attention-residual mixing across model depth."""
+
     d_model: int
     mode: Literal["standard", "full", "block"] = "block"
     rms_norm_eps: float = 1e-6

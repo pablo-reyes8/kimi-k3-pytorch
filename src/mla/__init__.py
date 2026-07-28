@@ -1,3 +1,5 @@
+"""Gated Multi-head Latent Attention components and cache utilities."""
+
 from .attention import manual_causal_attention, mla_attention
 from .cache import MLACache
 from .config import GatedMLAConfig

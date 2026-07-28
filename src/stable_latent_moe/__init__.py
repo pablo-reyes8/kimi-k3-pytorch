@@ -1,3 +1,5 @@
+"""Stable LatentMoE routing, expert dispatch, and load-balancing components."""
+
 from .config import StableLatentMoEConfig
 from .diagnostics import build_moe_diagnostics
 from .dispatch import (

@@ -39,6 +39,8 @@ else:
 
 @dataclass(frozen=True)
 class HFTextDatasetPreset:
+    """Describe how to load and tokenize one Hugging Face text corpus."""
+
     name: str
     dataset_name: str
     subset: Optional[str]
@@ -51,6 +53,8 @@ class HFTextDatasetPreset:
 
 @dataclass(frozen=True)
 class TextDataloaderConfig:
+    """Configure the uniform Hugging Face causal-text dataloader entrypoint."""
+
     preset_name: str = "wikitext2"
     block_size: Optional[int] = None
     batch_size: int = 8
@@ -128,6 +132,7 @@ HF_TEXT_DATASETS: Dict[str, HFTextDatasetPreset] = {
 
 
 def _require_optional_dependencies() -> None:
+    """Raise an actionable error when optional data packages are unavailable."""
     if _OPTIONAL_IMPORT_ERROR is not None:
         raise ImportError(
             "Hugging Face dataset support requires optional dependencies. "
@@ -140,6 +145,7 @@ def iter_texts(
     text_field: str = "text",
     max_documents: Optional[int] = None,
 ) -> Iterator[str]:
+    """Yield non-empty documents from a dataset split."""
     count = 0
     for example in split:
         text = example.get(text_field, None)
@@ -157,6 +163,7 @@ def train_byte_level_bpe_tokenizer(
     min_frequency: int = 2,
     save_path: Optional[str | Path] = None,
 ) -> "Tokenizer":
+    """Train and optionally persist a byte-level BPE tokenizer."""
     _require_optional_dependencies()
 
     tokenizer = Tokenizer(models.BPE(unk_token="<unk>"))
@@ -188,6 +195,7 @@ def load_or_train_byte_level_tokenizer(
     min_frequency: int = 2,
     max_tokenizer_documents: Optional[int] = 50_000,
 ) -> "Tokenizer":
+    """Load a cached tokenizer or train it from the supplied split."""
     _require_optional_dependencies()
 
     tokenizer_path = Path(tokenizer_path)
@@ -258,6 +266,7 @@ class CausalTextDataset(Dataset):
 
 
 def resolve_hf_text_preset(name: str) -> HFTextDatasetPreset:
+    """Resolve a registered text-dataset preset by name."""
     try:
         return HF_TEXT_DATASETS[name]
     except KeyError as exc:
@@ -271,6 +280,7 @@ def load_hf_text_splits(
     *,
     streaming: bool = False,
 ):
+    """Load all splits declared by a Hugging Face dataset preset."""
     _require_optional_dependencies()
 
     preset = resolve_hf_text_preset(preset_name)
@@ -377,4 +387,5 @@ def create_text_dataloaders(
 
 
 def available_hf_text_dataset_presets() -> Sequence[str]:
+    """Return the registered preset names in deterministic order."""
     return tuple(sorted(HF_TEXT_DATASETS))

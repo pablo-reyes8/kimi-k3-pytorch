@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from .block_attnres import BlockAttentionResidualController
 from .block_state import BlockAttentionResidualState
 from .config import AttentionResidualConfig

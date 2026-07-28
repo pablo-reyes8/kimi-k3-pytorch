@@ -1,3 +1,5 @@
+"""Multi-token prediction components used as an optional KimiK3 output head."""
+
 from .alignment import MTPTrainingView, build_mtp_training_view
 from .block import KimiMTPBlock
 from .config import KimiMTPConfig

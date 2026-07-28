@@ -139,9 +139,11 @@ class KimiK3(nn.Module):
     # Stable public module access and weight-tying helpers
     # ------------------------------------------------------------------
     def get_input_embeddings(self) -> nn.Embedding:
+        """Return the shared token embedding table."""
         return self.embed_tokens
 
     def set_input_embeddings(self, value: nn.Embedding) -> None:
+        """Replace token embeddings and refresh their MTP reference."""
         if (
             value.num_embeddings != self.config.vocab_size
             or value.embedding_dim != self.config.d_model
@@ -152,9 +154,11 @@ class KimiK3(nn.Module):
             self.mtp.set_shared_modules(self.embed_tokens, self.lm_head)
 
     def get_output_embeddings(self) -> nn.Linear:
+        """Return the vocabulary projection head."""
         return self.lm_head
 
     def set_output_embeddings(self, value: nn.Linear) -> None:
+        """Replace the vocabulary head and refresh its MTP reference."""
         if (
             value.in_features != self.config.d_model
             or value.out_features != self.config.vocab_size
@@ -165,21 +169,26 @@ class KimiK3(nn.Module):
             self.mtp.set_shared_modules(self.embed_tokens, self.lm_head)
 
     def tie_weights(self) -> None:
+        """Tie vocabulary projection weights to token embeddings."""
         if self.config.tie_word_embeddings:
             self.lm_head.weight = self.embed_tokens.weight
         if hasattr(self, "mtp") and self.mtp is not None:
             self.mtp.set_shared_modules(self.embed_tokens, self.lm_head)
 
     def get_vision_encoder(self) -> nn.Module | None:
+        """Return the optional vision encoder."""
         return self.vision_encoder
 
     def get_backbone(self) -> KimiBlock:
+        """Return the hybrid text backbone."""
         return self.backbone
 
     def get_mtp_head(self) -> KimiMTPHead | None:
+        """Return the optional multi-token prediction head."""
         return self.mtp
 
     def num_parameters(self, only_trainable: bool = False) -> int:
+        """Count unique model parameters, optionally only trainable ones."""
         unique = {
             id(parameter): parameter for parameter in self.parameters()
         }.values()
@@ -190,6 +199,7 @@ class KimiK3(nn.Module):
         )
 
     def parameter_report(self) -> ParameterReport:
+        """Return unique parameter counts grouped by subsystem."""
         return build_parameter_report(self)
 
     # ------------------------------------------------------------------

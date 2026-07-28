@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from .utils import tiled_causal_decay_dot
 
 @dataclass
 class UTTransformOutput:
+    """Upper-triangular transformed tensors used by chunkwise KDA."""
+
     M: torch.Tensor
     U: torch.Tensor
     W: torch.Tensor
@@ -86,4 +90,3 @@ def ut_transform(
         log_gamma=internal.log_gamma.permute(0, 2, 1, 3),
         k_gamma=internal.k_gamma.permute(0, 2, 1, 3),
     )
-

@@ -1,3 +1,5 @@
+"""Stable LatentMoE routing, expert dispatch, and load-balancing components."""
+
 from __future__ import annotations
 
 import torch

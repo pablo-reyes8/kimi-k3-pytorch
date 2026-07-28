@@ -1,3 +1,5 @@
+"""MoonViT, hierarchical, and Swin vision encoder components."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +16,8 @@ from .vision_block import VisionTransformerBlock
 
 @dataclass(frozen=True)
 class VisionEncoderConfig:
+    """Configuration for the standard global-attention MoonViT encoder."""
+
     image_size: int | tuple[int, int] = 224
     patch_size: int | tuple[int, int] = 14
     in_channels: int = 3
@@ -170,4 +174,3 @@ class MoonViTEncoder(nn.Module):
 
 
 VisionEncoder = MoonViTEncoder
-

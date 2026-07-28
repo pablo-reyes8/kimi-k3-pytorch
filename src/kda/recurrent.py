@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +15,8 @@ from .utils import (
 
 @dataclass
 class KDAOperatorOutput:
+    """Output and updated recurrent matrix from a KDA operator backend."""
+
     hidden_states: torch.Tensor
     final_state: torch.Tensor | None = None
     states_per_token: tuple[torch.Tensor, ...] | None = None
@@ -74,4 +78,3 @@ def recurrent_kda(
         final_state=state if output_final_state else None,
         states_per_token=tuple(state_history) if state_history is not None else None,
     )
-

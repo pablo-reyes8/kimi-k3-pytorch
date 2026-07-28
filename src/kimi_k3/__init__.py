@@ -1,3 +1,5 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from .config import (
     KimiK3Config,
     VisionConfig,

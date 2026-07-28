@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 import math
 
 import torch

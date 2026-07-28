@@ -1,3 +1,5 @@
+"""Baseline transformer modules retained for controls and training infrastructure."""
+
 # ============================================================
 # Dense SwiGLU baseline (Kimi's SiTU-GLU is intentionally not implemented yet)
 # ============================================================

@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from __future__ import annotations
 
 import torch
@@ -18,6 +20,14 @@ from .utils import accumulation_dtype
 
 
 class BlockAttentionResidualController(nn.Module):
+    """Coordinate block-wise attention residual mixing across backbone depth.
+
+    The controller owns no hidden-state history itself. It operates on an
+    explicit :class:`BlockAttentionResidualState`, supports the eager and
+    two-phase algorithms, and exposes the same lifecycle used by the hybrid
+    backbone: initialize, prepare, mix, append, and finalize.
+    """
+
     def __init__(
         self,
         sublayers_per_depth_block: int,
@@ -34,6 +44,7 @@ class BlockAttentionResidualController(nn.Module):
     def initialize(
         self, embedding: torch.Tensor
     ) -> BlockAttentionResidualState:
+        """Create residual state seeded by the input embedding."""
         return BlockAttentionResidualState(
             embedding, self.sublayers_per_depth_block
         )
@@ -43,6 +54,7 @@ class BlockAttentionResidualController(nn.Module):
         state: BlockAttentionResidualState,
         sites: tuple[AttentionResidualSite, ...],
     ) -> None:
+        """Precompute reusable inter-block statistics when required."""
         state.prepare_for_site()
         if self.backend != "two_phase":
             return
@@ -64,6 +76,7 @@ class BlockAttentionResidualController(nn.Module):
         return_logits: bool = False,
         return_stats: bool = False,
     ) -> AttentionResidualMixOutput:
+        """Mix all residual sources available at one attention site."""
         state.prepare_for_site()
         completed_count = len(state.completed_blocks)
         has_partial = state.partial_block is not None
@@ -121,6 +134,7 @@ class BlockAttentionResidualController(nn.Module):
         state: BlockAttentionResidualState,
         output: torch.Tensor,
     ) -> None:
+        """Append a sublayer output to the active depth block."""
         state.append_output(output)
 
     def finalize(
@@ -132,6 +146,7 @@ class BlockAttentionResidualController(nn.Module):
         return_logits: bool = False,
         return_stats: bool = False,
     ) -> AttentionResidualMixOutput:
+        """Close the final block and compute the terminal residual mixture."""
         state.finalize()
         return final_site(
             state.available_sources(),

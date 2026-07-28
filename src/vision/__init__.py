@@ -1,3 +1,5 @@
+"""MoonViT, hierarchical, and Swin vision encoder components."""
+
 from .drop_path import DropPath
 from .hierarchical_encoder import (
     HierarchicalMoonViTEncoder,

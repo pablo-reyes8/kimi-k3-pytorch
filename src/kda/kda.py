@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +27,8 @@ from .utils import accumulation_dtype, validate_attention_mask
 
 @dataclass
 class KDAOutput:
+    """Container returned by KDA with output states, cache, and diagnostics."""
+
     hidden_states: torch.Tensor
     state: KDAState | None = None
     diagnostics: dict[str, torch.Tensor] | None = None
@@ -196,4 +200,3 @@ class KimiDeltaAttention(nn.Module):
             state=next_state,
             diagnostics=diagnostics,
         )
-

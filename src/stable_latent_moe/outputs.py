@@ -1,3 +1,5 @@
+"""Stable LatentMoE routing, expert dispatch, and load-balancing components."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +9,8 @@ import torch
 
 @dataclass
 class QuantileBalanceUpdate:
+    """Candidate router-bias update produced by quantile balancing."""
+
     next_bias: torch.Tensor
     target_quantile: float
     quantiles: torch.Tensor
@@ -17,6 +21,8 @@ class QuantileBalanceUpdate:
 
 @dataclass
 class RouterOutput:
+    """Selected experts, routing weights, logits, and balancing margins."""
+
     selected_experts: torch.Tensor
     selected_raw_scores: torch.Tensor
     selected_weights: torch.Tensor
@@ -31,6 +37,8 @@ class RouterOutput:
 
 @dataclass
 class MoEDiagnostics:
+    """Load, routing, and expert-utilization diagnostics for one MoE call."""
+
     num_tokens: int
     num_assignments: int
     shared_token_evaluations: int
@@ -58,6 +66,8 @@ class MoEDiagnostics:
 
 @dataclass
 class StableLatentMoEOutput:
+    """Combined shared/routed expert output and optional router diagnostics."""
+
     hidden_states: torch.Tensor
     shared_output: torch.Tensor | None = None
     routed_output: torch.Tensor | None = None

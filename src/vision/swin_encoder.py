@@ -1,3 +1,5 @@
+"""MoonViT, hierarchical, and Swin vision encoder components."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,6 +23,7 @@ from .vision_mlp import VisionMLP
 def _partition_windows(
     x: torch.Tensor, window_size: int
 ) -> tuple[torch.Tensor, tuple[int, int, int, int, int]]:
+    """Partition a padded image grid into non-overlapping token windows."""
     batch, height, width, dim = x.shape
     pad_h = (-height) % window_size
     pad_w = (-width) % window_size
@@ -45,6 +48,7 @@ def _reverse_windows(
     window_size: int,
     metadata: tuple[int, int, int, int, int],
 ) -> torch.Tensor:
+    """Reconstruct and unpad an image grid from window tokens."""
     batch, height, width, padded_h, padded_w = metadata
     dim = windows.shape[-1]
     x = windows.reshape(
@@ -60,6 +64,8 @@ def _reverse_windows(
 
 
 class WindowSelfAttention(nn.Module):
+    """Apply multi-head self-attention independently inside Swin windows."""
+
     def __init__(
         self,
         dim: int,
@@ -155,6 +161,8 @@ class WindowSelfAttention(nn.Module):
 
 
 class SwinTransformerBlock(nn.Module):
+    """Swin block with optional shifted windows and a token-wise MLP."""
+
     def __init__(
         self,
         dim: int,
@@ -268,6 +276,8 @@ class SwinTransformerBlock(nn.Module):
 
 
 class SwinPatchMerging(nn.Module):
+    """Downsample a token grid by merging each spatial 2x2 neighborhood."""
+
     def __init__(
         self,
         input_dim: int,
@@ -314,6 +324,8 @@ class SwinPatchMerging(nn.Module):
 
 @dataclass(frozen=True)
 class SwinVisionConfig:
+    """Configuration for the optional hierarchical Swin MoonViT variant."""
+
     image_size: int | tuple[int, int] = 224
     patch_size: int | tuple[int, int] = 14
     in_channels: int = 3
@@ -356,6 +368,8 @@ class SwinVisionConfig:
 
 
 class SwinMoonViTEncoder(nn.Module):
+    """Encode images with staged shifted-window attention for ablation studies."""
+
     def __init__(self, config: SwinVisionConfig):
         super().__init__()
         self.config = config

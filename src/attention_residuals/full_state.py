@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from .utils import stack_sources
 
 @dataclass
 class FullAttentionResidualState:
+    """Mutable hidden-state history used by full attention residuals."""
+
     sources: list[torch.Tensor]
     num_sublayer_outputs: int = 0
 

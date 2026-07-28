@@ -1,3 +1,5 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +13,8 @@ from src.vision import VisionEncoderOutput
 
 @dataclass
 class MultimodalMetadata:
+    """Counts and token spans describing multimodal embedding replacement."""
+
     image_counts: torch.Tensor | None = None
     video_counts: torch.Tensor | None = None
     image_token_counts: torch.Tensor | None = None
@@ -21,6 +25,8 @@ class MultimodalMetadata:
 
 @dataclass
 class KimiK3VisionOutput:
+    """Projected visual tokens and metadata produced before text composition."""
+
     images: VisionEncoderOutput | None = None
     videos: VisionEncoderOutput | None = None
 
@@ -51,6 +57,8 @@ class KimiK3Output:
 
 @dataclass(frozen=True)
 class ParameterReport:
+    """Unique parameter counts split by major KimiK3 subsystem."""
+
     total: int
     trainable: int
     embeddings: int

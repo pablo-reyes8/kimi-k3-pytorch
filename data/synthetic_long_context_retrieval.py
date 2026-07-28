@@ -1,3 +1,5 @@
+"""Dataset, batching, and inspection utilities for language-model research."""
+
 # ============================================================
 # SYNTHETIC LONG-CONTEXT RETRIEVAL DATASET
 # Architecture-neutral needle / key-value retrieval task
@@ -37,6 +39,8 @@ from torch.utils.data import Dataset, DataLoader
 
 @dataclass
 class SyntheticRetrievalConfig:
+    """Configure the deterministic synthetic key-value retrieval benchmark."""
+
     # Dataset size
     num_train_examples: int = 50_000
     num_val_examples: int = 5_000
@@ -60,6 +64,7 @@ class SyntheticRetrievalConfig:
     seed: int = 42
 
     def validate(self) -> None:
+        """Validate dataset sizes, sequence lengths, and task cardinalities."""
         if self.num_train_examples <= 0 or self.num_val_examples <= 0:
             raise ValueError("dataset sizes must be positive")
         if self.block_size <= 0 or self.batch_size <= 0:
@@ -401,6 +406,7 @@ def create_synthetic_retrieval_dataloaders(
     cfg: SyntheticRetrievalConfig = CFG,
     use_mtp: bool = False,
     mtp_depth: int = 1,):
+    """Build train and validation loaders plus their self-contained tokenizer."""
     cfg.validate()
     tokenizer = SimpleWordTokenizer()
     tokenizer.build_vocab(cfg)
@@ -450,4 +456,3 @@ def create_synthetic_retrieval_dataloaders(
     )
 
     return train_loader, val_loader, tokenizer
-

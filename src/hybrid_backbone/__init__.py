@@ -1,3 +1,5 @@
+"""Hybrid KDA/MLA backbone components and cache structures."""
+
 from .attention_layer import HybridAttentionLayer
 from .backbone import HybridAttentionBackbone
 from .cache import HybridBackboneCache, HybridLayerCache

@@ -1,3 +1,5 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -21,6 +23,8 @@ VisionConfig = VisionEncoderConfig | HierarchicalVisionConfig | SwinVisionConfig
 
 @dataclass(frozen=True)
 class VisionProjectorConfig:
+    """Configure the MLP that maps packed visual tokens into model width."""
+
     input_dim: int
     hidden_dim: int
     output_dim: int
@@ -35,6 +39,7 @@ class VisionProjectorConfig:
 
 
 def vision_output_dim(config: VisionConfig) -> int:
+    """Return the final channel width produced by a vision configuration."""
     if isinstance(config, VisionEncoderConfig):
         return config.embed_dim
     return config.embed_dims[-1]
@@ -42,6 +47,8 @@ def vision_output_dim(config: VisionConfig) -> int:
 
 @dataclass(frozen=True)
 class KimiK3Config:
+    """Complete architecture configuration consumed by :class:`KimiK3`."""
+
     vocab_size: int
     d_model: int
     backbone: KimiBlockConfig
@@ -231,6 +238,7 @@ def kimi_k3_cpu_tiny_config(
     enable_vision: bool = True,
     enable_mtp: bool = True,
 ) -> KimiK3Config:
+    """Build a small but structurally complete configuration for CPU tests."""
     d_model, vocab_size = 16, 128
     backbone, kda, mla, moe = _build_text_configs(
         d_model,
@@ -284,6 +292,7 @@ def kimi_k3_cpu_tiny_config(
 
 
 def kimi_k3_canonical_config() -> KimiK3Config:
+    """Build canonical architecture metadata without allocating its weights."""
     d_model, vocab_size = 7168, 160000
     backbone, kda, mla, moe = _build_text_configs(
         d_model,

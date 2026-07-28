@@ -1,3 +1,5 @@
+"""Multi-token prediction components used as an optional KimiK3 output head."""
+
 from __future__ import annotations
 
 from typing import Literal

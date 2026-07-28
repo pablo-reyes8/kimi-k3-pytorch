@@ -1,3 +1,5 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -15,6 +17,7 @@ def validate_and_build_attention_mask(
     d_model: int,
     pad_token_id: int | None,
 ) -> tuple[int, int, torch.Tensor]:
+    """Validate text inputs and return a normalized right-padding mask."""
     if (input_ids is None) == (inputs_embeds is None):
         raise ValueError(
             "exactly one of input_ids or inputs_embeds must be provided"
@@ -62,6 +65,7 @@ def resolve_execution_mode(
     use_cache: bool,
     tokens: int,
 ) -> Literal["full", "prefill", "decode"]:
+    """Resolve full-sequence, prefill, or incremental-decode execution."""
     if cache is not None and not use_cache:
         raise ValueError("a cache requires use_cache=True")
     if cache is not None and tokens != 1:

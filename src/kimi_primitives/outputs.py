@@ -1,3 +1,5 @@
+"""Reusable neural-network primitives shared by Kimi attention implementations."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from src.kimi_primitives import ShortConvState
 
 @dataclass
 class KDAState:
+    """Incremental KDA state containing recurrence and short-convolution buffers."""
+
     recurrent_state: torch.Tensor
     q_conv_state: ShortConvState
     k_conv_state: ShortConvState
@@ -61,4 +65,3 @@ class KDAState:
             ),
             sequence_offset=self.sequence_offset.index_select(0, indices),
         )
-

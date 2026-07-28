@@ -1,3 +1,5 @@
+"""Baseline transformer modules retained for controls and training infrastructure."""
+
 # ============================================================
 # Baseline-only RoPE utilities
 # Rotary Positional Embedding — standalone utility

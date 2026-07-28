@@ -1,3 +1,5 @@
+"""Top-level model components and public APIs for the research Kimi K3 implementation."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

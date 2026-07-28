@@ -1,3 +1,5 @@
+"""Top-level model components and public APIs for the research Kimi K3 implementation."""
+
 from .causal_lm import BaselineCausalLM, BaselineCausalLMConfig
 from .outputs import CausalLMOutput
 from .kimi_primitives import (

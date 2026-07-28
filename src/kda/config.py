@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -6,6 +8,8 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class KDAConfig:
+    """Configure Kimi Delta Attention dimensions, kernels, and numerics."""
+
     d_model: int
     num_heads: int
     key_head_dim: int
@@ -76,4 +80,3 @@ class KDAConfig:
     @classmethod
     def from_dict(cls, values: dict) -> "KDAConfig":
         return cls(**values)
-

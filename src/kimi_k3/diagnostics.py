@@ -1,9 +1,12 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from __future__ import annotations
 
 from .outputs import ParameterReport
 
 
 def build_parameter_report(model) -> ParameterReport:
+    """Count unique trainable parameters by high-level model subsystem."""
     def unique(*modules):
         result = {}
         for module in modules:

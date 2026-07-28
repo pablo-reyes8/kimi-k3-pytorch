@@ -1,3 +1,5 @@
+"""Gated Multi-head Latent Attention components and cache utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ from .config import GatedMLAConfig
 
 @dataclass
 class LatentKVOutput:
+    """Compressed latent KV state together with reconstructed keys and values."""
+
     latent_kv: torch.Tensor
     key: torch.Tensor
     value: torch.Tensor

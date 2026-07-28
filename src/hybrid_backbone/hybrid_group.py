@@ -1,3 +1,5 @@
+"""Hybrid KDA/MLA backbone components and cache structures."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

@@ -1,3 +1,5 @@
+"""Reusable neural-network primitives shared by Kimi attention implementations."""
+
 from .head_utils import combine_heads, split_heads
 from .headwise_rmsnorm import HeadwiseRMSNorm
 from .output_gate import FullRankOutputGate

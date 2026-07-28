@@ -1,3 +1,5 @@
+"""Gated Multi-head Latent Attention components and cache utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +13,8 @@ from .latent_kv import LatentKVProjection
 
 @dataclass
 class MLAProjectionOutput:
+    """Queries and reconstructed latent-KV projections used by Gated MLA."""
+
     query: torch.Tensor
     latent_kv: torch.Tensor
     key: torch.Tensor

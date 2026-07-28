@@ -1,3 +1,5 @@
+"""Gated Multi-head Latent Attention components and cache utilities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,6 +20,8 @@ from .utils import validate_hidden_states, validate_right_padding_mask
 
 @dataclass
 class GatedMLAOutput:
+    """Container returned by Gated MLA with cache and optional diagnostics."""
+
     hidden_states: torch.Tensor
     cache: MLACache | None = None
     attentions: torch.Tensor | None = None

@@ -1,3 +1,5 @@
+"""Configuration and multimodal integration helpers used by the KimiK3 orchestrator."""
+
 from __future__ import annotations
 
 import torch
@@ -22,6 +24,7 @@ from .outputs import (
 
 
 def make_vision_encoder(config: VisionConfig) -> nn.Module:
+    """Instantiate the configured standard, hierarchical, or Swin encoder."""
     if isinstance(config, VisionEncoderConfig):
         return MoonViTEncoder(config)
     if isinstance(config, HierarchicalVisionConfig):
@@ -35,6 +38,7 @@ def pack_visual_mask(
     mask: torch.Tensor,
     grid: tuple[int, int],
 ) -> torch.Tensor:
+    """Reduce a visual mask with the same 2x2 packing as pixel shuffle."""
     batch, tokens = mask.shape
     height, width = grid
     if tokens != height * width or height % 2 or width % 2:
@@ -59,6 +63,7 @@ def encode_visual_items(
     output_hidden_states: bool,
     output_attentions: bool,
 ) -> tuple[torch.Tensor, torch.Tensor, VisionEncoderOutput, int]:
+    """Encode, optionally pack, and project a batch of images or videos."""
     if is_video:
         if values.ndim != 5:
             raise ValueError("video_values must have shape [M,F,C,H,W]")
@@ -127,6 +132,7 @@ def prepare_multimodal_embeddings(
     KimiK3VisionOutput | None,
     MultimodalMetadata | None,
 ]:
+    """Encode visual items and replace their placeholders in text embeddings."""
     has_visual_input = pixel_values is not None or video_values is not None
     has_image_placeholder = (
         config.image_token_id is not None

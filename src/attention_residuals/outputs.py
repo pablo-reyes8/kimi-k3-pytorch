@@ -1,3 +1,5 @@
+"""Attention-residual components for mixing hidden-state streams across model depth."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from .metadata import DepthSiteMetadata
 
 @dataclass
 class DepthSoftmaxStats:
+    """Online-softmax statistics accumulated across residual sources."""
+
     max_logit: torch.Tensor
     exp_sum: torch.Tensor
     weighted_sum: torch.Tensor
@@ -17,6 +21,8 @@ class DepthSoftmaxStats:
 
 @dataclass
 class DepthAttentionStats:
+    """Diagnostics describing attention weights over model depth."""
+
     metadata: DepthSiteMetadata
     source_count: int
     weight_entropy: torch.Tensor
@@ -38,6 +44,8 @@ class DepthAttentionStats:
 
 @dataclass
 class AttentionResidualMixOutput:
+    """Result of mixing the hidden states available at one residual site."""
+
     mixed_state: torch.Tensor
     weights: torch.Tensor | None = None
     logits: torch.Tensor | None = None
@@ -46,6 +54,8 @@ class AttentionResidualMixOutput:
 
 @dataclass
 class AttentionResidualBackboneOutput:
+    """Backbone-level attention-residual outputs and optional diagnostics."""
+
     mode: str
     site_stats: tuple[DepthAttentionStats, ...]
     final_output_stats: DepthAttentionStats

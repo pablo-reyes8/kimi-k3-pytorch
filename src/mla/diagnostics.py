@@ -1,3 +1,5 @@
+"""Gated Multi-head Latent Attention components and cache utilities."""
+
 from __future__ import annotations
 
 import torch

@@ -1,3 +1,5 @@
+"""Reusable neural-network primitives shared by Kimi attention implementations."""
+
 import torch
 
 

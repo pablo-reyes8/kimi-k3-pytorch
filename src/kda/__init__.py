@@ -1,3 +1,5 @@
+"""Kimi Delta Attention operators, projections, states, and diagnostics."""
+
 from .chunkwise import chunkwise_kda
 from .config import KDAConfig
 from .decay import LowerBoundedDecay
