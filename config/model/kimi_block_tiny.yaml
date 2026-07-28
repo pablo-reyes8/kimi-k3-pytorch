@@ -1,0 +1,19 @@
+model:
+  architecture: kimi_block
+  d_model: 16
+  num_pattern_repeats: 1
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: true
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 4
+    backend: two_phase
+  stable_latent_moe:
+    latent_dim: 8
+    num_shared_experts: 2
+    num_routed_experts: 4
+    routed_experts_per_token: 2
+    shared_expert_hidden_dim: 12
+    routed_expert_hidden_dim: 10
+    enable_quantile_balancing: true
+    quantile_backend: exact

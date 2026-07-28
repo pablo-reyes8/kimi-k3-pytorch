@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from src.attention_residuals import AttentionResidualConfig
 from src.kda import KDAConfig
 from src.mla import GatedMLAConfig
+from src.stable_latent_moe import StableLatentMoEConfig
 
 
 CANONICAL_ATTENTION_PATTERN = ("kda", "kda", "kda", "gated_mla")
@@ -12,11 +13,12 @@ CANONICAL_ATTENTION_PATTERN = ("kda", "kda", "kda", "gated_mla")
 
 @dataclass(frozen=True)
 class HybridBackboneConfig:
-    """Configuration for the pre-AttnRes, pre-MoE Kimi K3 backbone."""
+    """Configuration for the configurable Kimi K3 hybrid backbone."""
 
     d_model: int
     num_hybrid_groups: int
     attention_pattern: tuple[str, ...] = CANONICAL_ATTENTION_PATTERN
+    enforce_canonical_pattern: bool = True
     add_final_gated_mla: bool = True
     add_ffn_after_final_global: bool = True
     rms_norm_eps: float = 1e-6
@@ -26,6 +28,8 @@ class HybridBackboneConfig:
     kda_config: KDAConfig | None = None
     mla_config: GatedMLAConfig | None = None
     use_dense_ffn: bool = True
+    channel_mixer_type: str = "dense"
+    stable_latent_moe_config: StableLatentMoEConfig | None = None
     activation: str = "situ_glu"
     ffn_bias: bool = False
     init_std: float = 0.02
@@ -42,7 +46,10 @@ class HybridBackboneConfig:
         unknown = set(self.attention_pattern) - {"kda", "gated_mla"}
         if unknown:
             raise ValueError(f"unsupported attention types: {sorted(unknown)}")
-        if self.attention_pattern != CANONICAL_ATTENTION_PATTERN:
+        if (
+            self.enforce_canonical_pattern
+            and self.attention_pattern != CANONICAL_ATTENTION_PATTERN
+        ):
             raise ValueError(
                 "the Kimi K3 profile requires the explicit 3:1 pattern "
                 f"{CANONICAL_ATTENTION_PATTERN}"
@@ -72,9 +79,28 @@ class HybridBackboneConfig:
                 raise ValueError(f"{name} must satisfy 0 <= p < 1")
         if self.resolved_mlp_hidden_dim <= 0:
             raise ValueError("mlp_hidden_dim must be > 0")
-        if not self.use_dense_ffn:
+        if self.channel_mixer_type not in ("dense", "stable_latent_moe"):
+            raise ValueError("unknown channel_mixer_type")
+        if self.channel_mixer_type == "dense" and not self.use_dense_ffn:
             raise ValueError(
-                "this pre-MoE phase requires use_dense_ffn=True"
+                "dense channel mixing requires use_dense_ffn=True"
+            )
+        if self.channel_mixer_type == "stable_latent_moe":
+            if self.use_dense_ffn:
+                raise ValueError(
+                    "Stable LatentMoE and DenseKimiFFN cannot be active together"
+                )
+            if self.stable_latent_moe_config is None:
+                raise ValueError(
+                    "stable_latent_moe_config is required for MoE mixing"
+                )
+            if self.stable_latent_moe_config.d_model != self.d_model:
+                raise ValueError(
+                    "stable_latent_moe_config.d_model must match backbone"
+                )
+        elif self.stable_latent_moe_config is not None:
+            raise ValueError(
+                "stable_latent_moe_config is only valid for MoE mixing"
             )
         if self.activation != "situ_glu":
             raise ValueError("only activation='situ_glu' is supported")
@@ -138,6 +164,12 @@ class HybridBackboneConfig:
             values["attention_residual_config"] = (
                 AttentionResidualConfig.from_dict(
                     values["attention_residual_config"]
+                )
+            )
+        if isinstance(values.get("stable_latent_moe_config"), dict):
+            values["stable_latent_moe_config"] = (
+                StableLatentMoEConfig.from_dict(
+                    values["stable_latent_moe_config"]
                 )
             )
         if "attention_pattern" in values:

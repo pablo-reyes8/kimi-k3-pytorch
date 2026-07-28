@@ -14,6 +14,7 @@ from src.attention_residuals import (
 )
 from src.kda import KDAState, KimiDeltaAttention
 from src.mla import GatedMLA, MLACache
+from src.stable_latent_moe import StableLatentMoE, StableLatentMoEOutput
 from src.transformer_modules.rms_norm import RMSNorm
 
 from .cache import HybridLayerCache
@@ -74,6 +75,18 @@ class HybridAttentionLayer(nn.Module):
     def attention_label(self) -> str:
         return "gated_mla_final" if self.is_final_global else self.attention_type
 
+    @property
+    def channel_mixer(self) -> nn.Module | None:
+        return self.ffn
+
+    @property
+    def pre_moe_attnres(self) -> AttentionResidualSite | None:
+        return self.pre_ffn_attnres
+
+    @property
+    def moe(self) -> StableLatentMoE | None:
+        return self.ffn if isinstance(self.ffn, StableLatentMoE) else None
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -83,6 +96,7 @@ class HybridAttentionLayer(nn.Module):
         use_cache: bool = False,
         mode: Literal["full", "prefill", "decode"] = "full",
         output_diagnostics: bool = False,
+        update_routing_bias: bool = False,
     ) -> HybridLayerOutput:
         if hidden_states.ndim != 3 or hidden_states.shape[-1] != self.d_model:
             raise ValueError(
@@ -123,8 +137,15 @@ class HybridAttentionLayer(nn.Module):
 
         post_attention = hidden_states + self.residual_dropout(attention_output)
         ffn_output = torch.zeros_like(post_attention)
+        channel_mixer_diagnostics = None
         if self.ffn is not None:
-            ffn_output = self.ffn(self.ffn_norm(post_attention))
+            ffn_output, channel_mixer_diagnostics = (
+                self._channel_mixer_transform(
+                    self.ffn_norm(post_attention),
+                    update_routing_bias=update_routing_bias,
+                    output_diagnostics=output_diagnostics,
+                )
+            )
         output = post_attention + self.residual_dropout(ffn_output)
 
         next_cache = (
@@ -151,6 +172,7 @@ class HybridAttentionLayer(nn.Module):
                     output, attention_mask
                 ),
                 "mechanism": mechanism_diagnostics,
+                "channel_mixer": channel_mixer_diagnostics,
             }
         return HybridLayerOutput(output, next_cache, diagnostics)
 
@@ -190,6 +212,24 @@ class HybridAttentionLayer(nn.Module):
         )
         return result.hidden_states, result.cache, result.diagnostics
 
+    def _channel_mixer_transform(
+        self,
+        hidden_states: torch.Tensor,
+        *,
+        update_routing_bias: bool,
+        output_diagnostics: bool,
+    ) -> tuple[torch.Tensor, object | None]:
+        if isinstance(self.ffn, StableLatentMoE):
+            result = self.ffn(
+                hidden_states,
+                update_routing_bias=update_routing_bias,
+                return_router_diagnostics=output_diagnostics,
+            )
+            if isinstance(result, StableLatentMoEOutput):
+                return result.hidden_states, result.diagnostics
+            return result, None
+        return self.ffn(hidden_states), None
+
     def forward_attnres(
         self,
         depth_controller: (
@@ -209,6 +249,7 @@ class HybridAttentionLayer(nn.Module):
         output_depth_weights: bool = False,
         output_depth_stats: bool = False,
         output_diagnostics: bool = False,
+        update_routing_bias: bool = False,
     ) -> tuple[HybridLayerOutput, tuple[object, object]]:
         if self.pre_attention_attnres is None or self.pre_ffn_attnres is None:
             raise RuntimeError("AttnRes sites are not configured on this layer")
@@ -251,9 +292,14 @@ class HybridAttentionLayer(nn.Module):
             raise RuntimeError(
                 "canonical AttnRes requires an FFN at every transformer layer"
             )
-        ffn_output = self.residual_dropout(
-            self.ffn(self.ffn_norm(ffn_mix.mixed_state))
+        raw_ffn_output, channel_mixer_diagnostics = (
+            self._channel_mixer_transform(
+                self.ffn_norm(ffn_mix.mixed_state),
+                update_routing_bias=update_routing_bias,
+                output_diagnostics=output_diagnostics,
+            )
         )
+        ffn_output = self.residual_dropout(raw_ffn_output)
         depth_controller.append_output(depth_state, ffn_output)
         next_cache = (
             HybridLayerCache(self.attention_type, next_state)
@@ -280,6 +326,7 @@ class HybridAttentionLayer(nn.Module):
                     ffn_output, attention_mask
                 ),
                 "mechanism": mechanism_diagnostics,
+                "channel_mixer": channel_mixer_diagnostics,
             }
         return (
             HybridLayerOutput(

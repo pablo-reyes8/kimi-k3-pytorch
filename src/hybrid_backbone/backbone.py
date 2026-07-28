@@ -17,6 +17,7 @@ from src.attention_residuals import (
 )
 from src.kda import KimiDeltaAttention
 from src.mla import GatedMLA
+from src.stable_latent_moe import StableLatentMoE
 from src.transformer_modules.rms_norm import RMSNorm
 
 from .attention_layer import HybridAttentionLayer
@@ -93,7 +94,11 @@ class HybridAttentionBackbone(nn.Module):
             else None
         )
 
-    def _make_ffn(self) -> DenseKimiFFN:
+    def _make_ffn(self) -> nn.Module:
+        if self.config.channel_mixer_type == "stable_latent_moe":
+            return StableLatentMoE(
+                self.config.stable_latent_moe_config
+            )
         return DenseKimiFFN(
             self.config.d_model,
             self.config.resolved_mlp_hidden_dim,
@@ -287,6 +292,7 @@ class HybridAttentionBackbone(nn.Module):
         output_hidden_states: bool = False,
         output_depth_weights: bool = False,
         output_diagnostics: bool = False,
+        update_routing_bias: bool = False,
     ) -> HybridBackboneOutput:
         if self.config.depth_mixing == "standard":
             return self._forward_standard(
@@ -297,6 +303,7 @@ class HybridAttentionBackbone(nn.Module):
                 mode,
                 output_hidden_states,
                 output_diagnostics,
+                update_routing_bias,
             )
         return self._forward_attnres(
             hidden_states,
@@ -307,6 +314,7 @@ class HybridAttentionBackbone(nn.Module):
             output_hidden_states,
             output_depth_weights,
             output_diagnostics,
+            update_routing_bias,
         )
 
     def _forward_standard(
@@ -318,6 +326,7 @@ class HybridAttentionBackbone(nn.Module):
         mode: Literal["full", "prefill", "decode"] = "full",
         output_hidden_states: bool = False,
         output_diagnostics: bool = False,
+        update_routing_bias: bool = False,
     ) -> HybridBackboneOutput:
         batch, _, mask = validate_backbone_inputs(
             hidden_states,
@@ -348,6 +357,7 @@ class HybridAttentionBackbone(nn.Module):
                 mode=mode,
                 output_hidden_states=output_hidden_states,
                 output_diagnostics=output_diagnostics,
+                update_routing_bias=update_routing_bias,
             )
             output = group_output.hidden_states
             cache_cursor += group_size
@@ -368,6 +378,7 @@ class HybridAttentionBackbone(nn.Module):
             use_cache=return_cache,
             mode=mode,
             output_diagnostics=output_diagnostics,
+            update_routing_bias=update_routing_bias,
         )
         output = final_output.hidden_states
         if return_cache:
@@ -418,6 +429,7 @@ class HybridAttentionBackbone(nn.Module):
         output_hidden_states: bool,
         output_depth_weights: bool,
         output_diagnostics: bool,
+        update_routing_bias: bool,
     ) -> HybridBackboneOutput:
         batch, _, mask = validate_backbone_inputs(
             hidden_states,
@@ -466,6 +478,7 @@ class HybridAttentionBackbone(nn.Module):
                 output_depth_weights=return_weights,
                 output_depth_stats=return_stats,
                 output_diagnostics=output_diagnostics,
+                update_routing_bias=update_routing_bias,
             )
             if use_cache:
                 next_caches.append(layer_output.cache)

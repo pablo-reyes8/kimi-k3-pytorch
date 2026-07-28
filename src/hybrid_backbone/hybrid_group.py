@@ -38,6 +38,7 @@ class HybridAttentionGroup(nn.Module):
         mode: Literal["full", "prefill", "decode"] = "full",
         output_hidden_states: bool = False,
         output_diagnostics: bool = False,
+        update_routing_bias: bool = False,
     ) -> HybridGroupOutput:
         if cache is not None and len(cache) != len(self.layers):
             raise ValueError("group cache count must match group layer count")
@@ -53,6 +54,7 @@ class HybridAttentionGroup(nn.Module):
                 use_cache=use_cache,
                 mode=mode,
                 output_diagnostics=output_diagnostics,
+                update_routing_bias=update_routing_bias,
             )
             output = layer_output.hidden_states
             if use_cache:

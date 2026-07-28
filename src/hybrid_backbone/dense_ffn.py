@@ -7,7 +7,7 @@ from src.kimi_primitives import SiTUGLU
 
 
 class DenseKimiFFN(nn.Module):
-    """Temporary dense channel mixer, replaceable by Stable LatentMoE."""
+    """Dense SiTU-GLU channel-mixing ablation."""
 
     def __init__(
         self,

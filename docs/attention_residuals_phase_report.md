@@ -245,11 +245,12 @@ exact zeros for invalid rows; its pre-existing all-masked and right-padding
 tests pass.
 
 The implementation is pure PyTorch and intentionally has no fused
-CUDA/Triton kernel, distributed execution, later AttnRes variants or
-Stable LatentMoE. The next phase is:
+CUDA/Triton kernel, distributed execution or later AttnRes variants. At the
+end of phase 7, the next phase was:
 
 ```text
 8_IMPLEMENTAR_STABLE_LATENT_MOE.md
 ```
 
-Stable LatentMoE has not been started.
+Stable LatentMoE was subsequently implemented in phase 8; this statement is
+retained only as the historical phase-7 boundary.

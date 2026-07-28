@@ -46,6 +46,7 @@ mathematical or behavioral test.
 | Kimi Gated MLA | NoPE inspection/equivariance, shared latent KV equations, manual scalar/SDPA parity, causal global attention, full-rank gate, compressed-cache prefill/decode, unequal right-padding, complete gradients/gradchecks, BF16 and serialization |
 | Hybrid attention backbone | explicit repeated 3:1 KDA/MLA pattern plus final MLA, two pre-norm residual branches, replaceable dense SiTU-GLU FFN, typed synchronized caches, full/prefill/decode and unequal-padding equivalence, end-to-end causality, parameter counts, gradients/gradcheck and serialization |
 | Attention Residuals | exact depth-softmax oracle, Full/Block state machines, block-size-1 parity, eager/two-phase online-softmax parity, independent site parameters, final mixer, no residual leakage, full/prefill/decode and cache equivalence, causal/padding invariants, gradients/gradcheck, BF16, diagnostics, memory accounting and serialization |
+| Stable LatentMoE | full-width shared and latent routed expert equations, sigmoid biased Top-k with unbiased weights, reference/vectorized sparse dispatch and gradient parity, exact/histogram Quantile Balancing, causal bias commits, zero-load experts, BF16, serialization, routing diagnostics, KDA/MLA/AttnRes integration and KimiBlock full/prefill/decode |
 
 ## CPU command
 
