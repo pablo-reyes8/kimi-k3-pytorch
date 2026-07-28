@@ -1,0 +1,1 @@
+"""Rigorous MoonViT architecture tests."""

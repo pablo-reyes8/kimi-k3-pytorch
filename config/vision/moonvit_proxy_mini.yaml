@@ -1,0 +1,18 @@
+model:
+  architecture: moonvit
+  image_size: 224
+  patch_size: 14
+  in_channels: 3
+  embed_dim: 384
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4.0
+  norm_type: rmsnorm
+  position_embedding_type: learned_absolute
+  use_cls_token: false
+  patch_bias: false
+  qkv_bias: false
+  proj_bias: false
+  mlp_bias: false
+  drop_path_rate: 0.1
+

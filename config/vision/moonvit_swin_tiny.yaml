@@ -1,0 +1,17 @@
+model:
+  architecture: swin_moonvit
+  image_size: 112
+  patch_size: 14
+  in_channels: 3
+  embed_dims: [48, 96, 192]
+  depths: [2, 2, 2]
+  num_heads: [6, 12, 12]
+  window_size: 4
+  norm_type: rmsnorm
+  patch_bias: false
+  qkv_bias: false
+  proj_bias: false
+  mlp_bias: false
+  merge_bias: false
+  use_relative_position_bias: true
+
