@@ -1,0 +1,6 @@
+torch>=2.2
+numpy>=1.24
+
+# Optional dataset support:
+# datasets>=2.18
+# tokenizers>=0.15

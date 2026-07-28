@@ -1,0 +1,7 @@
+data:
+  name: tinystories
+  block_size: 256
+  batch_size: 8
+  vocab_size: 16000
+  max_train_documents: 20000
+  max_validation_documents: 2000

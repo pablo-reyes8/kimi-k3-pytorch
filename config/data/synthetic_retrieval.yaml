@@ -1,0 +1,10 @@
+data:
+  name: synthetic_long_context_retrieval
+  num_train_examples: 10000
+  num_val_examples: 1000
+  block_size: 128
+  min_filler_tokens: 32
+  max_filler_tokens: 96
+  num_keys_per_example: 4
+  batch_size: 16
+  seed: 42

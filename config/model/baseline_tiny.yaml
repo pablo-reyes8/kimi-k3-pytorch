@@ -1,0 +1,11 @@
+model:
+  architecture: baseline_transformer
+  vocab_size: 1024
+  d_model: 64
+  n_layers: 2
+  n_heads: 4
+  mlp_hidden_dim: 256
+  max_seq_len: 64
+  use_rope: true
+  tie_embeddings: true
+  dropout: 0.0

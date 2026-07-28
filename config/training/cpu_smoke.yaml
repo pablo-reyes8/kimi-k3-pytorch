@@ -1,0 +1,9 @@
+training:
+  device: cpu
+  optimizer: adamw
+  learning_rate: 0.001
+  weight_decay: 0.1
+  warmup_ratio: 0.01
+  scheduler: cosine
+  amp_enabled: false
+  max_batches: 8

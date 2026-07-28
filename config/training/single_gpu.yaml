@@ -1,0 +1,9 @@
+training:
+  device: cuda
+  optimizer: adamw
+  learning_rate: 0.0003
+  weight_decay: 0.1
+  warmup_ratio: 0.01
+  scheduler: cosine
+  amp_enabled: true
+  amp_dtype: bf16
