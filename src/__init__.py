@@ -97,8 +97,11 @@ from .kimi_k3 import (
     ParameterReport,
     VisionProjectorConfig,
     VisualPlaceholderComposer,
+    build_model_config_from_mapping,
+    build_model_from_yaml,
     kimi_k3_canonical_config,
     kimi_k3_cpu_tiny_config,
+    load_model_config,
 )
 from .mtp import (
     DraftFeatureProvider,
@@ -217,8 +220,11 @@ __all__ = [
     "ParameterReport",
     "VisionProjectorConfig",
     "VisualPlaceholderComposer",
+    "build_model_config_from_mapping",
+    "build_model_from_yaml",
     "kimi_k3_canonical_config",
     "kimi_k3_cpu_tiny_config",
+    "load_model_config",
     "KimiMTPBlock",
     "KimiMTPConfig",
     "KimiMTPFusion",

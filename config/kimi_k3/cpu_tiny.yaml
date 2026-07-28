@@ -1,36 +1,54 @@
 model:
+  name: kimi_k3_cpu_tiny
   architecture: kimi_k3
   vocab_size: 128
   d_model: 16
-  tie_word_embeddings: true
+  num_heads: 2
+  num_hybrid_groups: 1
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: true
   pad_token_id: 0
   bos_token_id: 1
   eos_token_id: 2
   image_token_id: 3
   video_token_id: 4
-  enable_vision: true
-  enable_mtp: true
-  backbone:
-    num_hybrid_groups: 1
-    attention_pattern: [kda, kda, kda, gated_mla]
-    add_final_gated_mla: true
-    attention_residual:
-      mode: block
-      sublayers_per_depth_block: 4
-    stable_latent_moe:
-      latent_dim: 8
-      num_shared_experts: 1
-      num_routed_experts: 4
-      routed_experts_per_token: 2
+  tie_word_embeddings: true
+  kda:
+    key_head_dim: 4
+    short_conv_kernel_size: 4
+    chunk_size: 64
+    secondary_tile_size: 16
+  mla:
+    q_head_dim: 4
+    kv_latent_dim: 8
+    attention_backend: auto
+  moe:
+    latent_dim: 8
+    num_shared_experts: 1
+    num_routed_experts: 4
+    routed_experts_per_token: 2
+    shared_expert_hidden_dim: 20
+    routed_expert_hidden_dim: 16
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 4
+    backend: eager
   vision:
-    variant: moonvit
+    enabled: true
+    type: moonvit
     image_size: 16
     patch_size: 4
     embed_dim: 16
     depth: 2
     num_heads: 4
-    pixel_shuffle: true
+    use_cls_token: false
+    use_pixel_shuffle: true
+    projector:
+      hidden_dim: 32
   mtp:
     enabled: true
-    num_mtp_layers: 1
-    future_offset: 2
+    loss_weight: 0.1
+    attention_residual:
+      mode: block
+      sublayers_per_depth_block: 4
+      backend: eager

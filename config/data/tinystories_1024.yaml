@@ -1,0 +1,22 @@
+data:
+  name: tinystories_1024
+  kind: hf_text
+  dataset:
+    preset_name: tinystories
+    block_size: 1024
+    tokenizer_path: data/cache/tokenizers/tinystories_32000.json
+    vocab_size: 32000
+    min_frequency: 2
+    max_tokenizer_documents: 100000
+    max_train_documents: 50000
+    max_validation_documents: 5000
+  loader:
+    batch_size: 1
+    validation_batch_size: 1
+    num_workers: 4
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: false
+    seed: 42

@@ -7,11 +7,11 @@ name = "kimi-k3-mini"
 version = "0.0.1"
 description = "Research-oriented pure-PyTorch implementation of Kimi-K3 architectural mechanisms"
 requires-python = ">=3.10"
-dependencies = ["torch>=2.2", "numpy>=1.24"]
+dependencies = ["torch>=2.2", "numpy>=1.24", "pyyaml>=6"]
 
 [project.optional-dependencies]
 data = ["datasets>=2.18", "tokenizers>=0.15"]
-dev = ["pytest>=8", "pyyaml>=6"]
+dev = ["pytest>=8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -21,4 +21,4 @@ markers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["src*", "data*", "training*"]
+include = ["src*", "data*", "training*", "configuration*"]

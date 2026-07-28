@@ -1,10 +1,24 @@
 data:
-  name: synthetic_long_context_retrieval
-  num_train_examples: 10000
-  num_val_examples: 1000
-  block_size: 128
-  min_filler_tokens: 32
-  max_filler_tokens: 96
-  num_keys_per_example: 4
-  batch_size: 16
-  seed: 42
+  name: synthetic_retrieval_512
+  kind: synthetic_retrieval
+  dataset:
+    num_train_examples: 10000
+    num_val_examples: 1000
+    block_size: 512
+    min_filler_tokens: 64
+    max_filler_tokens: 420
+    num_keys_per_example: 8
+    vocab_filler_size: 2048
+    num_key_types: 128
+    num_value_types: 256
+    seed: 42
+  loader:
+    batch_size: 1
+    validation_batch_size: 2
+    num_workers: 2
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: false
+    seed: 42

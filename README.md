@@ -50,6 +50,30 @@ python -m scripts.cpu_smoke_train
 
 The synthetic retrieval data is self-contained and requires no downloads.
 
+## YAML training pipeline
+
+CLI and Jupyter use the same three public builders:
+
+```python
+from data import build_dataloaders_from_yaml
+from src import build_model_from_yaml
+from training import train_kimi_from_yaml
+```
+
+Ready-to-edit CPU, NVIDIA T4, 24 GB and 48 GB/PCC profiles live under
+[`config/`](config/README.md). The executable example is
+[`notebooks/train_kimi_k3_from_yaml.ipynb`](notebooks/train_kimi_k3_from_yaml.ipynb).
+Validate an entire profile set without downloading, allocating weights or
+training:
+
+```bash
+python -m scripts.train_kimi \
+  --data-config config/data/tinystories.yaml \
+  --model-config config/kimi_k3/t4_15gb.yaml \
+  --training-config config/training/t4_15gb.yaml \
+  --validate-only
+```
+
 The full testing philosophy and invariant matrix are documented in
 [`docs/testing.md`](docs/testing.md).
 The MTP alignment, architecture, checkpoint migration and deferred EAGLE-3

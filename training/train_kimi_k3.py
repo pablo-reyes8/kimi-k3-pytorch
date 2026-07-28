@@ -18,6 +18,7 @@ from .context_curriculum import (
 from .config import (
     CheckpointConfig,
     OptimizerConfig,
+    PretrainingLossConfig,
     PredictionConfig,
     SchedulerConfig,
     TrainingConfig,
@@ -121,6 +122,7 @@ def train_kimiK3(
     val_loader=None,
     device: str | torch.device = "auto",
     training_config: TrainingConfig | None = None,
+    loss_config: PretrainingLossConfig | None = None,
     optimizer_config: OptimizerConfig | None = None,
     kimi_optimizer_config: KimiOptimizerConfig | None = None,
     scheduler_config: SchedulerConfig | None = None,
@@ -149,6 +151,28 @@ def train_kimiK3(
     """
 
     training_config = training_config or TrainingConfig()
+    if loss_config is not None:
+        from src.loss import KimiPretrainingLoss
+
+        if not hasattr(model, "pretraining_loss"):
+            raise TypeError(
+                "loss_config requires a Kimi model with pretraining_loss"
+            )
+        model_mtp = getattr(getattr(model, "config", None), "mtp", None)
+        default_mtp_weight = (
+            float(getattr(model_mtp, "loss_weight", 0.0))
+            if training_config.use_mtp
+            else 0.0
+        )
+        model.pretraining_loss = KimiPretrainingLoss(
+            lambda_mtp=(
+                default_mtp_weight
+                if loss_config.mtp_loss_weight is None
+                else loss_config.mtp_loss_weight
+            ),
+            ignore_index=loss_config.ignore_index,
+            label_smoothing=loss_config.label_smoothing,
+        )
     legacy_optimizer_config = optimizer_config
     optimizer_config = optimizer_config or OptimizerConfig()
     if kimi_optimizer_config is None:
@@ -379,10 +403,26 @@ def train_kimiK3(
                     on_optimizer_step=on_step,
                     max_seq_len=training_config.max_seq_len,
                     context_ignore_index=(
-                        int(getattr(getattr(model, "config", None), "mtp", None).ignore_index)
-                        if getattr(getattr(model, "config", None), "mtp", None)
-                        is not None
-                        else -100
+                        loss_config.ignore_index
+                        if loss_config is not None
+                        else (
+                            int(
+                                getattr(
+                                    getattr(
+                                        model, "config", None
+                                    ),
+                                    "mtp",
+                                    None,
+                                ).ignore_index
+                            )
+                            if getattr(
+                                getattr(model, "config", None),
+                                "mtp",
+                                None,
+                            )
+                            is not None
+                            else -100
+                        )
                     ),
                     image_token_id=getattr(
                         getattr(model, "config", None),
@@ -512,6 +552,11 @@ def train_kimiK3(
                     model_config=getattr(model, "config", None),
                     training_config={
                         "training": training_config.to_dict(),
+                        "loss": (
+                            None
+                            if loss_config is None
+                            else loss_config.to_dict()
+                        ),
                         "optimizer": optimizer_config.to_dict(),
                         "kimi_optimizer": kimi_optimizer_config.to_dict(),
                         "scheduler": scheduler_config.to_dict(),

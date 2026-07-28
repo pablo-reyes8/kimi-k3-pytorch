@@ -1,0 +1,48 @@
+runtime:
+  device: cpu
+  total_steps: 1
+  verbose: true
+training:
+  epochs: 1
+  gradient_accumulation_steps: 1
+  precision: fp32
+  grad_clip_norm: 1.0
+  use_mtp: true
+  max_batches_per_epoch: 1
+  max_eval_batches: 1
+  log_every_steps: 1
+  eval_every_epochs: 1
+  checkpoint_every_epochs: 1
+  prediction_every_epochs: null
+  seed: 7
+  deterministic: true
+  max_seq_len: 32
+loss:
+  ignore_index: -100
+  label_smoothing: 0.0
+  mtp_loss_weight: 0.1
+optimizer:
+  kind: adamw
+  adamw_lr: 0.001
+  weight_decay: 0.0
+  per_head_qkv: false
+  qk_clip_enabled: false
+scheduler:
+  kind: cosine
+  warmup_ratio: 0.0
+  warmup_steps: null
+  min_lr_ratio: 0.0
+diagnostics:
+  enabled: false
+context_curriculum:
+  enabled: false
+checkpoint:
+  output_dir: checkpoints/cpu_yaml_smoke
+  run_name: cpu_yaml_smoke
+  keep_last_n: 1
+  save_optimizer: true
+  save_rng_state: true
+  atomic_write: true
+prediction:
+  sample_index: 0
+  max_tokens: 8

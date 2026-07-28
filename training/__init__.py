@@ -3,6 +3,7 @@ from .checkpoints import load_checkpoint, save_checkpoint
 from .config import (
     CheckpointConfig,
     OptimizerConfig,
+    PretrainingLossConfig,
     PredictionConfig,
     SchedulerConfig,
     TrainingConfig,
@@ -29,6 +30,13 @@ from .seed import set_seed
 from .state import TrainerState
 from .train_kimi_k3 import train_kimiK3, train_kimi_k3
 from .train_one_epoch import train_one_epoch
+from .yaml_config import (
+    TrainingRuntimeConfig,
+    TrainingYamlConfig,
+    load_training_config,
+    train_kimi_from_yaml,
+    validate_pipeline_compatibility,
+)
 
 __all__ = [
     "CheckpointConfig",
@@ -46,12 +54,15 @@ __all__ = [
     "MoEController",
     "OptimizerConfig",
     "PredictionConfig",
+    "PretrainingLossConfig",
     "ProgressiveContextCollator",
     "ProgressiveContextCurriculum",
     "SchedulerConfig",
     "TrainerState",
     "TrainingConfig",
     "TrainingLogger",
+    "TrainingRuntimeConfig",
+    "TrainingYamlConfig",
     "WarmupCosineLR",
     "build_adamw_optimizer",
     "build_adamw_parameter_groups",
@@ -68,5 +79,8 @@ __all__ = [
     "train_kimiK3",
     "train_kimi_k3",
     "train_one_epoch",
+    "load_training_config",
+    "train_kimi_from_yaml",
+    "validate_pipeline_compatibility",
     "truncate_batch_to_context",
 ]

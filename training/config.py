@@ -57,6 +57,26 @@ class TrainingConfig:
 
 
 @dataclass(frozen=True)
+class PretrainingLossConfig:
+    """NTP/MTP objective knobs controlled by the training run."""
+
+    ignore_index: int = -100
+    label_smoothing: float = 0.0
+    mtp_loss_weight: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.ignore_index >= 0:
+            raise ValueError("ignore_index must be negative")
+        if not 0 <= self.label_smoothing < 1:
+            raise ValueError("label_smoothing must be in [0, 1)")
+        if self.mtp_loss_weight is not None and self.mtp_loss_weight < 0:
+            raise ValueError("mtp_loss_weight must be None or non-negative")
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class OptimizerConfig:
     """AdamW baseline required by the basic Kimi training phase."""
 

@@ -1,0 +1,22 @@
+data:
+  name: synthetic_cpu_smoke
+  kind: synthetic_retrieval
+  dataset:
+    num_train_examples: 32
+    num_val_examples: 8
+    block_size: 32
+    min_filler_tokens: 4
+    max_filler_tokens: 12
+    num_keys_per_example: 2
+    vocab_filler_size: 32
+    num_key_types: 8
+    num_value_types: 16
+    seed: 7
+  loader:
+    batch_size: 4
+    num_workers: 0
+    shuffle_train: true
+    pin_memory: false
+    persistent_workers: false
+    drop_last: false
+    seed: 7

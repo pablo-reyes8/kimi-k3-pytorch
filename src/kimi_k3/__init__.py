@@ -26,6 +26,11 @@ from .losses import (
     SFTTrajectoryCrossEntropyLoss,
     gather_token_logprobs,
 )
+from .yaml_config import (
+    build_model_config_from_mapping,
+    build_model_from_yaml,
+    load_model_config,
+)
 
 __all__ = [
     "KimiK3Config",
@@ -48,4 +53,7 @@ __all__ = [
     "NextTokenCrossEntropyLoss",
     "SFTTrajectoryCrossEntropyLoss",
     "gather_token_logprobs",
+    "build_model_config_from_mapping",
+    "build_model_from_yaml",
+    "load_model_config",
 ]

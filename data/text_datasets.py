@@ -66,6 +66,24 @@ class TextDataloaderConfig:
     max_train_documents: Optional[int] = 20_000
     max_validation_documents: Optional[int] = 2_000
 
+    def __post_init__(self) -> None:
+        if self.block_size is not None and self.block_size <= 0:
+            raise ValueError("block_size must be None or positive")
+        if self.batch_size <= 0 or self.num_workers < 0:
+            raise ValueError(
+                "batch_size must be positive and num_workers non-negative"
+            )
+        if self.vocab_size <= 0 or self.min_frequency <= 0:
+            raise ValueError("tokenizer sizes must be positive")
+        for name in (
+            "max_tokenizer_documents",
+            "max_train_documents",
+            "max_validation_documents",
+        ):
+            value = getattr(self, name)
+            if value is not None and value <= 0:
+                raise ValueError(f"{name} must be None or positive")
+
 
 HF_TEXT_DATASETS: Dict[str, HFTextDatasetPreset] = {
     "wikitext2": HFTextDatasetPreset(
