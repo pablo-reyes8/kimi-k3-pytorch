@@ -23,9 +23,17 @@ def filter_forward_kwargs(model, values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def call_model(model, batch: dict[str, Any], *, use_mtp: bool | None = None):
+def call_model(
+    model,
+    batch: dict[str, Any],
+    *,
+    use_mtp: bool | None = None,
+    extra_kwargs: dict[str, Any] | None = None,
+):
     values = dict(batch)
     if use_mtp is not None:
         values["use_mtp"] = use_mtp
         values["training_phase"] = "pretrain"
+    if extra_kwargs:
+        values.update(extra_kwargs)
     return model(**filter_forward_kwargs(model, values))

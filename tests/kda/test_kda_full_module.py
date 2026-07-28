@@ -82,11 +82,17 @@ def test_diagnostics_are_scalar_finite_and_complete():
         output_diagnostics=True,
     )
     expected = {
-        "alpha_min", "alpha_max", "alpha_mean", "log_decay_min",
-        "log_decay_max", "beta_mean", "beta_saturation_low",
+        "alpha_min", "alpha_max", "alpha_mean", "alpha_std",
+        "fraction_alpha_near_lower_bound", "fraction_alpha_near_one",
+        "log_decay_min", "log_decay_max", "log_decay_mean",
+        "cumulative_log_decay_min", "cumulative_log_decay_mean",
+        "beta_mean", "beta_std", "beta_saturation_low",
         "beta_saturation_high", "state_norm_mean", "state_norm_max",
-        "q_norm_error", "k_norm_error", "output_gate_mean",
-        "output_gate_saturation", "chunk_count",
+        "state_rms", "state_absmax", "recurrent_output_rms",
+        "gated_output_rms", "q_norm_error", "k_norm_error",
+        "output_gate_mean", "output_gate_saturation_low",
+        "output_gate_saturation_high", "output_gate_saturation",
+        "chunk_count",
     }
     assert output.diagnostics.keys() == expected
     assert all(value.ndim == 0 for value in output.diagnostics.values())
@@ -203,4 +209,3 @@ def test_noncontiguous_hidden_states_supported():
     output = model(x, mode="chunkwise")
     assert output.hidden_states.shape == x.shape
     assert torch.isfinite(output.hidden_states).all()
-

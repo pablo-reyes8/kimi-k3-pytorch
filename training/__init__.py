@@ -9,9 +9,11 @@ from .config import (
 )
 from .curriculum import ContextCurriculum, ContextStage
 from .eval_one_epoch import eval_one_epoch
+from .diagnostics import DiagnosticsConfig, KimiDiagnosticCollector, KimiTrainingPrinter
 from .logger import JSONLLogger, MemoryLogger, TrainingLogger
 from .moe_control import MoEController
 from .predictions import next_token_preview, print_next_token_preview
+from .optimizer import KimiOptimizerConfig, build_kimi_optimizer, build_parameter_registry
 from .scheduler import WarmupCosineLR, build_warmup_cosine_scheduler
 from .seed import set_seed
 from .state import TrainerState
@@ -22,7 +24,11 @@ __all__ = [
     "CheckpointConfig",
     "ContextCurriculum",
     "ContextStage",
+    "DiagnosticsConfig",
     "JSONLLogger",
+    "KimiDiagnosticCollector",
+    "KimiOptimizerConfig",
+    "KimiTrainingPrinter",
     "MemoryLogger",
     "MoEController",
     "OptimizerConfig",
@@ -34,6 +40,8 @@ __all__ = [
     "WarmupCosineLR",
     "build_adamw_optimizer",
     "build_adamw_parameter_groups",
+    "build_kimi_optimizer",
+    "build_parameter_registry",
     "build_warmup_cosine_scheduler",
     "eval_one_epoch",
     "load_checkpoint",

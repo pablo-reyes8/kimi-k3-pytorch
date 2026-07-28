@@ -57,6 +57,7 @@ def save_checkpoint(
     curriculum=None,
     metadata=None,
     save_rng_state: bool = True,
+    diagnostics=None,
 ) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,6 +83,9 @@ def save_checkpoint(
             curriculum.state_dict() if curriculum is not None else None
         ),
         "metadata": metadata or {},
+        "diagnostics_state_dict": (
+            diagnostics.state_dict() if diagnostics is not None else None
+        ),
     }
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(payload, temporary)
@@ -102,6 +106,7 @@ def load_checkpoint(
     ema=None,
     trainer_state=None,
     curriculum=None,
+    diagnostics=None,
 ) -> Dict[str, Any]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=False)
     raw_model = model.module if hasattr(model, "module") else model
@@ -127,6 +132,11 @@ def load_checkpoint(
         and payload.get("curriculum_state_dict") is not None
     ):
         curriculum.load_state_dict(payload["curriculum_state_dict"])
+    if (
+        diagnostics is not None
+        and payload.get("diagnostics_state_dict") is not None
+    ):
+        diagnostics.load_state_dict(payload["diagnostics_state_dict"])
     return {
         "format_version": payload.get("format_version", 1),
         "epoch": payload.get("epoch", 0),
@@ -137,6 +147,7 @@ def load_checkpoint(
         "trainer_state": payload.get("trainer_state_dict"),
         "curriculum_state": payload.get("curriculum_state_dict"),
         "metadata": payload.get("metadata", {}),
+        "diagnostics_state": payload.get("diagnostics_state_dict"),
         "missing_keys": list(incompatible.missing_keys),
         "unexpected_keys": list(incompatible.unexpected_keys),
     }

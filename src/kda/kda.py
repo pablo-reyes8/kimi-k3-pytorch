@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Literal
 
 import torch
@@ -191,9 +192,12 @@ class KimiDeltaAttention(nn.Module):
                 g,
                 alpha,
                 diagnostics_state,
+                core_output.hidden_states,
+                final_output,
                 gate,
                 attention_mask,
                 self.config.chunk_size,
+                math.exp(self.config.g_min),
             )
         return KDAOutput(
             hidden_states=final_output,

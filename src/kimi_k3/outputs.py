@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import torch
 
-from src.hybrid_backbone import HybridBackboneCache
+from src.hybrid_backbone import BackboneHiddenStateTrace, HybridBackboneCache
 from src.mtp import MTPDiagnostics
 from src.loss import KimiPretrainingLossOutput, MTPLossOutput, TokenCrossEntropyOutput
 from src.vision import VisionEncoderOutput
@@ -42,6 +42,7 @@ class KimiK3Output:
     mtp_logits: torch.Tensor | None = None
     hidden_states: tuple[torch.Tensor, ...] | None = None
     backbone_diagnostics: dict[str, object] | None = None
+    backbone_trace: BackboneHiddenStateTrace | None = None
     attnres_diagnostics: object | None = None
     mtp_diagnostics: MTPDiagnostics | None = None
     vision_outputs: KimiK3VisionOutput | None = None

@@ -8,6 +8,7 @@ import torch
 def build_mla_diagnostics(
     query: torch.Tensor,
     key: torch.Tensor,
+    value: torch.Tensor,
     latent_kv: torch.Tensor,
     gate: torch.Tensor,
     attentions: torch.Tensor,
@@ -15,6 +16,9 @@ def build_mla_diagnostics(
     query_mask: torch.Tensor,
     cache_elements: int,
     full_kv_width: int,
+    attention_output: torch.Tensor,
+    final_output: torch.Tensor,
+    qk_scale: torch.Tensor,
 ) -> dict[str, torch.Tensor]:
     probabilities = attentions.float()
     positive = probabilities > 0
@@ -25,16 +29,27 @@ def build_mla_diagnostics(
     )
     row_valid = positive.any(dim=-1)
     entropy = entropy_terms.sum(dim=-1)[row_valid]
+    support = positive.sum(dim=-1)[row_valid].clamp_min(1)
+    entropy_denominator = support.float().log()
+    normalized_entropy = torch.where(
+        support > 1,
+        entropy / entropy_denominator.clamp_min(
+            torch.finfo(torch.float32).tiny
+        ),
+        torch.zeros_like(entropy),
+    )
     maximum = probabilities.max(dim=-1).values[row_valid]
     valid_latent = latent_kv[key_mask]
     latent_norm = valid_latent.float().norm(dim=-1)
     gate_values = gate[query_mask].float()
     valid_query = query[query_mask]
     valid_key = key[key_mask]
+    valid_value = value[key_mask]
     cache_length = latent_kv.shape[1]
     latent_dim = latent_kv.shape[-1]
     return {
         "attention_entropy": entropy.mean(),
+        "attention_entropy_normalized": normalized_entropy.mean(),
         "attention_max_probability": maximum.mean(),
         "gate_mean": gate_values.mean(),
         "gate_min": gate_values.min(),
@@ -45,6 +60,12 @@ def build_mla_diagnostics(
         "latent_norm_max": latent_norm.max(),
         "query_norm_mean": valid_query.float().norm(dim=-1).mean(),
         "key_norm_mean": valid_key.float().norm(dim=-1).mean(),
+        "q_rms": valid_query.float().square().mean().sqrt(),
+        "k_rms": valid_key.float().square().mean().sqrt(),
+        "v_rms": valid_value.float().square().mean().sqrt(),
+        "attention_output_rms": attention_output.float().square().mean().sqrt(),
+        "gated_output_rms": final_output.float().square().mean().sqrt(),
+        "qk_scale_max": qk_scale.detach().float(),
         "cache_length": torch.tensor(
             cache_length, dtype=torch.long, device=query.device
         ),

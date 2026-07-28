@@ -8,7 +8,6 @@ from typing import Any, Callable
 
 import torch
 
-from .adam_optimizer import build_adamw_optimizer
 from .autocast import resolve_device, setup_device_and_precision
 from .checkpoints import load_checkpoint, save_checkpoint
 from .config import (
@@ -19,9 +18,19 @@ from .config import (
     TrainingConfig,
 )
 from .ema import EMA
+from .diagnostics import (
+    DiagnosticsConfig,
+    KimiDiagnosticCollector,
+    KimiTrainingPrinter,
+)
 from .eval_one_epoch import eval_one_epoch
 from .logger import JSONLLogger
 from .moe_control import MoEController
+from .optimizer import (
+    KimiOptimizerConfig,
+    build_kimi_optimizer,
+    build_parameter_registry,
+)
 from .predictions import next_token_preview, print_next_token_preview
 from .scheduler import build_warmup_cosine_scheduler
 from .seed import set_seed
@@ -53,7 +62,9 @@ def train_kimiK3(
     device: str | torch.device = "auto",
     training_config: TrainingConfig | None = None,
     optimizer_config: OptimizerConfig | None = None,
+    kimi_optimizer_config: KimiOptimizerConfig | None = None,
     scheduler_config: SchedulerConfig | None = None,
+    diagnostics_config: DiagnosticsConfig | None = None,
     checkpoint_config: CheckpointConfig | None = None,
     prediction_config: PredictionConfig | None = None,
     optimizer=None,
@@ -72,12 +83,28 @@ def train_kimiK3(
     """Train Kimi K3 through modular train/eval/checkpoint components.
 
     Optimizer and scheduler may be injected for experiments. When omitted,
-    the phase-1 AdamW and warmup-cosine baseline are constructed here.
+    the canonical Kimi Per-Head Muon + Muon + AdamW optimizer and
+    first-update-aware warmup-cosine schedule are constructed here.
     """
 
     training_config = training_config or TrainingConfig()
+    legacy_optimizer_config = optimizer_config
     optimizer_config = optimizer_config or OptimizerConfig()
+    if kimi_optimizer_config is None:
+        kimi_optimizer_config = (
+            KimiOptimizerConfig(
+                kind="adamw",
+                adamw_lr=optimizer_config.learning_rate,
+                adamw_betas=optimizer_config.betas,
+                adamw_eps=optimizer_config.eps,
+                weight_decay=optimizer_config.weight_decay,
+                qk_clip_enabled=False,
+            )
+            if legacy_optimizer_config is not None
+            else KimiOptimizerConfig()
+        )
     scheduler_config = scheduler_config or SchedulerConfig()
+    diagnostics_config = diagnostics_config or DiagnosticsConfig()
     checkpoint_config = checkpoint_config or CheckpointConfig()
     prediction_config = prediction_config or PredictionConfig()
 
@@ -94,13 +121,21 @@ def train_kimiK3(
     model.to(device_obj)
 
     optimizer_info = None
+    parameter_registry = None
     if optimizer is None:
-        optimizer, optimizer_info = build_adamw_optimizer(
-            model,
-            learning_rate=optimizer_config.learning_rate,
-            weight_decay=optimizer_config.weight_decay,
-            betas=optimizer_config.betas,
-            eps=optimizer_config.eps,
+        optimizer, parameter_registry = build_kimi_optimizer(
+            model, kimi_optimizer_config
+        )
+        optimizer_info = (
+            parameter_registry.to_dict()
+            if hasattr(parameter_registry, "to_dict")
+            else parameter_registry
+        )
+    else:
+        parameter_registry = (
+            optimizer.parameter_assignment_report()
+            if hasattr(optimizer, "parameter_assignment_report")
+            else build_parameter_registry(model, kind="adamw", strict=False)
         )
 
     if total_steps is None:
@@ -111,16 +146,21 @@ def train_kimiK3(
             batches / training_config.gradient_accumulation_steps
         )
         total_steps = max(steps_per_epoch * training_config.epochs, 1)
+    warmup_steps = scheduler_config.resolve_warmup_steps(total_steps)
     if scheduler is None:
-        warmup_steps = scheduler_config.resolve_warmup_steps(total_steps)
         scheduler = build_warmup_cosine_scheduler(
             optimizer,
             total_steps=total_steps,
             warmup_steps=warmup_steps,
             min_lr=(
-                optimizer_config.learning_rate
+                kimi_optimizer_config.adamw_lr
                 * scheduler_config.min_lr_ratio
             ),
+            min_muon_lr=(
+                kimi_optimizer_config.resolved_muon_lr
+                * scheduler_config.min_lr_ratio
+            ),
+            prepare_first_update=True,
         )
 
     if ema is None and use_ema:
@@ -130,6 +170,12 @@ def train_kimiK3(
 
     state = TrainerState()
     moe_controller = MoEController(model)
+    diagnostic_collector = KimiDiagnosticCollector(
+        model,
+        diagnostics_config,
+        parameter_specs=parameter_registry.specs,
+    )
+    printer = KimiTrainingPrinter() if verbose else None
     output_dir = Path(checkpoint_config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     owns_logger = logger is None
@@ -152,6 +198,7 @@ def train_kimiK3(
             ema=ema,
             trainer_state=state,
             curriculum=curriculum,
+            diagnostics=diagnostic_collector,
             map_location="cpu",
             strict=True,
             restore_rng=checkpoint_config.save_rng_state,
@@ -159,17 +206,32 @@ def train_kimiK3(
         history = resumed.get("history") or history
         model.to(device_obj)
 
-    if verbose:
-        print(
-            f"Kimi K3 training | device={device_obj} "
-            f"precision={training_config.precision} "
-            f"epochs={training_config.epochs} "
-            f"start_epoch={state.epoch} total_steps={total_steps}"
+    if printer is not None:
+        printer.print_run_header(
+            run_name=checkpoint_config.run_name,
+            model=model,
+            device=device_obj,
+            precision=training_config.precision,
+            optimizer_kind=kimi_optimizer_config.kind,
+            epochs=training_config.epochs,
+            total_steps=total_steps,
+            warmup_steps=warmup_steps,
+            registry=parameter_registry,
         )
 
     last_checkpoint = None
     try:
         for epoch in range(state.epoch, training_config.epochs):
+            def on_step(step_metrics):
+                alerts = step_metrics.pop("_alerts", ())
+                if (
+                    printer is not None
+                    and state.optimizer_step % training_config.log_every_steps == 0
+                ):
+                    printer.print_step(
+                        state.optimizer_step, step_metrics, alerts
+                    )
+
             train_stats = train_one_epoch(
                 model,
                 train_loader,
@@ -189,6 +251,8 @@ def train_kimiK3(
                 curriculum=curriculum,
                 log_every=training_config.log_every_steps,
                 logger=logger,
+                diagnostics=diagnostic_collector,
+                on_optimizer_step=on_step,
             )
             history["train"].append(train_stats)
 
@@ -259,14 +323,6 @@ def train_kimiK3(
                     "context_stage": state.curriculum_stage_index,
                 },
             )
-            if verbose:
-                message = (
-                    f"epoch={epoch} train_loss={train_stats['loss']:.6f}"
-                )
-                if eval_stats is not None:
-                    message += f" eval_loss={eval_stats['loss']:.6f}"
-                print(message)
-
             should_checkpoint = (
                 (epoch + 1) % training_config.checkpoint_every_epochs == 0
                 or epoch + 1 == training_config.epochs
@@ -293,17 +349,28 @@ def train_kimiK3(
                     training_config={
                         "training": training_config.to_dict(),
                         "optimizer": optimizer_config.to_dict(),
+                        "kimi_optimizer": kimi_optimizer_config.to_dict(),
                         "scheduler": scheduler_config.to_dict(),
+                        "diagnostics": diagnostics_config.to_dict(),
                         "checkpoint": checkpoint_config.to_dict(),
                     },
                     history=history,
                     metadata={"optimizer_type": type(optimizer).__name__},
                     save_rng_state=checkpoint_config.save_rng_state,
+                    diagnostics=diagnostic_collector,
                 )
                 _prune_epoch_checkpoints(
                     output_dir,
                     checkpoint_config.run_name,
                     checkpoint_config.keep_last_n,
+                )
+            if printer is not None:
+                printer.print_epoch_summary(
+                    epoch=epoch,
+                    state=state,
+                    train_stats=train_stats,
+                    eval_stats=eval_stats,
+                    checkpoint=last_checkpoint if should_checkpoint else None,
                 )
     finally:
         if owns_logger:
@@ -319,6 +386,8 @@ def train_kimiK3(
         "history": history,
         "last_checkpoint": last_checkpoint,
         "precision": precision,
+        "parameter_registry": parameter_registry,
+        "diagnostics": diagnostic_collector,
     }
 
 

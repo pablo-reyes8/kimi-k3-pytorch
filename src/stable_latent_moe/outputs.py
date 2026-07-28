@@ -58,10 +58,16 @@ class MoEDiagnostics:
     routing_bias_std: torch.Tensor
     routing_bias_min: torch.Tensor
     routing_bias_max: torch.Tensor
+    qb_update_rms: torch.Tensor
+    qb_quantile_error_estimate: torch.Tensor
     shared_output_rms: torch.Tensor
     routed_output_rms: torch.Tensor
     routed_aggregate_rms_before_norm: torch.Tensor
     routed_aggregate_rms_after_norm: torch.Tensor
+    shared_to_total_ratio: torch.Tensor
+    routed_to_total_ratio: torch.Tensor
+    shared_routed_cosine: torch.Tensor
+    output_rms: torch.Tensor
 
 
 @dataclass

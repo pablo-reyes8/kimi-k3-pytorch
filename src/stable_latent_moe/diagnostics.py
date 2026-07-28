@@ -28,6 +28,23 @@ def build_moe_diagnostics(
         * weights.clamp_min(torch.finfo(torch.float32).tiny).log()
     ).sum(dim=-1).mean()
     bias = router.routing_bias_before.float()
+    bias_after = router.routing_bias_after
+    qb_update_rms = (
+        bias.new_zeros(())
+        if bias_after is None
+        else rms(bias_after.float() - bias)
+    )
+    target_fraction = 1.0 / max(loads.numel(), 1)
+    load_fraction = loads_float / max(assignments, 1)
+    shared_rms = rms(shared_output)
+    routed_rms = rms(routed_output)
+    total = shared_output.float() + routed_output.float()
+    total_rms = rms(total)
+    flat_shared = shared_output.float().reshape(-1)
+    flat_routed = routed_output.float().reshape(-1)
+    cosine = torch.nn.functional.cosine_similarity(
+        flat_shared, flat_routed, dim=0, eps=1e-12
+    )
     return MoEDiagnostics(
         num_tokens=tokens,
         num_assignments=assignments,
@@ -48,8 +65,16 @@ def build_moe_diagnostics(
         routing_bias_std=bias.std(unbiased=False),
         routing_bias_min=bias.min(),
         routing_bias_max=bias.max(),
-        shared_output_rms=rms(shared_output),
-        routed_output_rms=rms(routed_output),
+        qb_update_rms=qb_update_rms,
+        qb_quantile_error_estimate=(
+            load_fraction - target_fraction
+        ).abs().mean(),
+        shared_output_rms=shared_rms,
+        routed_output_rms=routed_rms,
         routed_aggregate_rms_before_norm=rms(aggregate),
         routed_aggregate_rms_after_norm=rms(normalized_aggregate),
+        shared_to_total_ratio=shared_rms / total_rms.clamp_min(1e-12),
+        routed_to_total_ratio=routed_rms / total_rms.clamp_min(1e-12),
+        shared_routed_cosine=cosine,
+        output_rms=total_rms,
     )

@@ -103,7 +103,10 @@ class SchedulerConfig:
             raise ValueError("total_steps must be positive")
         if self.warmup_steps is not None:
             return min(self.warmup_steps, total_steps)
-        return min(int(total_steps * (self.warmup_ratio or 0.0)), total_steps)
+        resolved = int(total_steps * (self.warmup_ratio or 0.0))
+        if (self.warmup_ratio or 0.0) > 0 and total_steps > 1:
+            resolved = max(1, resolved)
+        return min(resolved, total_steps)
 
     def to_dict(self) -> dict:
         return asdict(self)

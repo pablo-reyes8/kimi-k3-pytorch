@@ -57,10 +57,13 @@ def test_diagnostics_are_scalar_finite_and_complete():
     model = tiny_mla().eval()
     output = model(torch.randn(2, 6, 12), output_diagnostics=True)
     expected = {
-        "attention_entropy", "attention_max_probability", "gate_mean",
+        "attention_entropy", "attention_entropy_normalized",
+        "attention_max_probability", "gate_mean",
         "gate_min", "gate_max", "gate_saturation_low",
         "gate_saturation_high", "latent_norm_mean", "latent_norm_max",
-        "query_norm_mean", "key_norm_mean", "cache_length",
+        "query_norm_mean", "key_norm_mean", "q_rms", "k_rms", "v_rms",
+        "attention_output_rms", "gated_output_rms", "qk_scale_max",
+        "cache_length",
         "cache_elements", "compression_ratio",
     }
     assert output.diagnostics.keys() == expected

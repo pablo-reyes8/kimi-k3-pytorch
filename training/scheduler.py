@@ -47,6 +47,7 @@ class WarmupCosineLR:
         warmup_steps: int,
         min_lr: float = 0.0,
         min_muon_lr: Optional[float] = None,
+        prepare_first_update: bool = False,
     ):
         if total_steps <= 0:
             raise ValueError(f"total_steps must be > 0, got {total_steps}")
@@ -65,6 +66,7 @@ class WarmupCosineLR:
         self.warmup_steps = int(warmup_steps)
         self.min_lr = float(min_lr)
         self.min_muon_lr = float(min_muon_lr) if min_muon_lr is not None else None
+        self.prepare_first_update = bool(prepare_first_update)
 
         self.step_num = 0
 
@@ -95,6 +97,11 @@ class WarmupCosineLR:
 
             self.base_adamw_lrs = None
             self.base_muon_lrs = None
+
+        # The training loop calls scheduler.step() after optimizer.step().
+        # Canonical Kimi warmup therefore needs update 1 prepared up front.
+        if self.prepare_first_update:
+            self._set_lr(1)
 
     def _compute_lr(
         self,
@@ -173,7 +180,9 @@ class WarmupCosineLR:
             scheduler.step()
         """
         self.step_num += 1
-        self._set_lr(self.step_num)
+        self._set_lr(
+            self.step_num + 1 if self.prepare_first_update else self.step_num
+        )
 
     def set_step(self, step: int) -> None:
         """
@@ -185,7 +194,9 @@ class WarmupCosineLR:
             raise ValueError(f"step must be >= 0, got {step}")
 
         self.step_num = int(step)
-        self._set_lr(self.step_num)
+        self._set_lr(
+            self.step_num + 1 if self.prepare_first_update else self.step_num
+        )
 
     def get_last_lr(self) -> List[float]:
         """
@@ -232,6 +243,7 @@ class WarmupCosineLR:
             "min_muon_lr": self.min_muon_lr,
             "is_hybrid": bool(self.is_hybrid),
             "base_lrs": list(self.base_lrs),
+            "prepare_first_update": self.prepare_first_update,
         }
 
         if self.is_hybrid:
@@ -248,6 +260,9 @@ class WarmupCosineLR:
         self.total_steps = int(state_dict.get("total_steps", self.total_steps))
         self.warmup_steps = int(state_dict.get("warmup_steps", self.warmup_steps))
         self.min_lr = float(state_dict.get("min_lr", self.min_lr))
+        self.prepare_first_update = bool(
+            state_dict.get("prepare_first_update", self.prepare_first_update)
+        )
 
         loaded_min_muon_lr = state_dict.get("min_muon_lr", self.min_muon_lr)
         self.min_muon_lr = (
@@ -283,8 +298,10 @@ class WarmupCosineLR:
             ):
                 self.base_lrs = [float(x) for x in loaded_base_lrs]
 
-        # Restore LR exactly to resumed step.
-        self._set_lr(self.step_num)
+        # Restore the LR prepared for the next optimizer update.
+        self._set_lr(
+            self.step_num + 1 if self.prepare_first_update else self.step_num
+        )
 
 def build_warmup_cosine_scheduler(
     optimizer,
@@ -292,6 +309,7 @@ def build_warmup_cosine_scheduler(
     warmup_steps: int,
     min_lr: float = 3e-5,
     min_muon_lr: Optional[float] = None,
+    prepare_first_update: bool = False,
 ) -> WarmupCosineLR:
     """
     Build scheduler compatible with AdamW or HybridMuonAdamW.
@@ -302,4 +320,5 @@ def build_warmup_cosine_scheduler(
         warmup_steps=warmup_steps,
         min_lr=min_lr,
         min_muon_lr=min_muon_lr,
+        prepare_first_update=prepare_first_update,
     )

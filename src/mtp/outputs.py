@@ -19,6 +19,8 @@ class MTPDiagnostics:
     token_accuracy: torch.Tensor
     mean_logit_entropy: torch.Tensor
     mean_hidden_norm: torch.Tensor
+    hidden_rms: torch.Tensor
+    fusion_output_rms: torch.Tensor
     block: dict[str, object] | None = None
 
 

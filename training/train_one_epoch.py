@@ -17,6 +17,7 @@ from .loss_accounting import (
     extract_loss_contribution,
 )
 from .model_call import call_model
+from .diagnostics.loss_metrics import compute_loss_metrics
 from .state import TrainerState
 
 
@@ -57,6 +58,7 @@ def train_one_epoch(
     log_every: int | None = None,
     logger=None,
     on_optimizer_step: Callable[[dict[str, float]], None] | None = None,
+    diagnostics=None,
 ) -> Dict[str, float]:
     """Train a complete epoch while accumulating exact token loss sums.
 
@@ -85,9 +87,18 @@ def train_one_epoch(
     grad_norm_post_total = 0.0
     grad_norm_count = 0
     num_samples = 0
+    window_forward_time = 0.0
+    window_data_time = 0.0
+    window_samples = 0
+    diagnostic_metrics_pending: dict[str, float] = {}
+    diagnostic_alerts_pending = ()
+    window_started = None
     started = time.perf_counter()
+    previous_batch_completed = started
 
     def begin_window() -> None:
+        nonlocal window_started
+        window_started = time.perf_counter()
         if moe_controller is not None:
             moe_controller.begin()
 
@@ -100,17 +111,22 @@ def train_one_epoch(
     def finish_window() -> None:
         nonlocal optimizer_steps, skipped_steps
         nonlocal grad_norm_pre_total, grad_norm_post_total, grad_norm_count
+        nonlocal diagnostic_metrics_pending, diagnostic_alerts_pending
+        nonlocal window_forward_time, window_samples
+        nonlocal window_data_time
 
         objective, window_stats = combine_window_loss(window)
         if not math.isfinite(float(objective.detach().item())):
             discard_window()
             raise FloatingPointError("non-finite training loss")
 
+        backward_started = time.perf_counter()
         if scaler is None:
             objective.backward()
         else:
             scaler.scale(objective).backward()
             scaler.unscale_(optimizer)
+        backward_ms = (time.perf_counter() - backward_started) * 1000.0
 
         pre_clip = _grad_norm(model.parameters())
         if pre_clip is not None and not math.isfinite(pre_clip):
@@ -123,15 +139,30 @@ def train_one_epoch(
                 error_if_nonfinite=True,
             )
         post_clip = _grad_norm(model.parameters())
+        optimizer_metrics = (
+            diagnostics.capture_before_optimizer_step()
+            if diagnostics is not None
+            else {}
+        )
 
         executed = True
+        optimizer_report = None
+        optimizer_started = time.perf_counter()
         if scaler is None:
-            optimizer.step()
+            optimizer_report = optimizer.step()
+            executed = bool(
+                getattr(optimizer_report, "executed", True)
+            )
         else:
             old_scale = float(scaler.get_scale())
-            scaler.step(optimizer)
+            optimizer_report = scaler.step(optimizer)
             scaler.update()
             executed = float(scaler.get_scale()) >= old_scale
+            if optimizer_report is not None:
+                executed = executed and bool(
+                    getattr(optimizer_report, "executed", True)
+                )
+        optimizer_ms = (time.perf_counter() - optimizer_started) * 1000.0
 
         if executed:
             if scheduler is not None:
@@ -155,6 +186,20 @@ def train_one_epoch(
                 moe_controller.discard()
 
         optimizer.zero_grad(set_to_none=True)
+        step_time_ms = (
+            (time.perf_counter() - window_started) * 1000.0
+            if window_started is not None
+            else 0.0
+        )
+        after_optimizer_metrics = {}
+        if diagnostics is not None:
+            (
+                after_optimizer_metrics,
+                diagnostic_alerts_pending,
+            ) = diagnostics.capture_after_optimizer_step(
+                step=state.optimizer_step,
+                step_time_ms=step_time_ms,
+            )
         if pre_clip is not None:
             grad_norm_pre_total += pre_clip
             grad_norm_post_total += post_clip if post_clip is not None else pre_clip
@@ -162,6 +207,20 @@ def train_one_epoch(
 
         step_metrics = {
             **window_stats,
+            **compute_loss_metrics(
+                total_loss=window_stats["loss"],
+                ntp_loss=window_stats["ntp_loss"],
+                mtp_loss=(
+                    None
+                    if not math.isfinite(window_stats["mtp_loss"])
+                    else window_stats["mtp_loss"]
+                ),
+                ntp_tokens=window_stats["ntp_tokens"],
+                mtp_tokens=window_stats["mtp_tokens"],
+                lambda_mtp=(
+                    window[0].lambda_mtp if window else 0.0
+                ),
+            ),
             "optimizer_step": float(state.optimizer_step),
             "optimizer_step_executed": float(executed),
             "grad_norm_pre_clip": (
@@ -170,9 +229,73 @@ def train_one_epoch(
             "grad_norm_post_clip": (
                 float("nan") if post_clip is None else post_clip
             ),
+            "train/grad_norm_global_preclip": (
+                float("nan") if pre_clip is None else pre_clip
+            ),
+            "train/grad_norm_global_postclip": (
+                float("nan") if post_clip is None else post_clip
+            ),
+            "train/grad_clip_coefficient": (
+                1.0
+                if pre_clip is None or grad_clip is None
+                else min(1.0, float(grad_clip) / max(pre_clip, 1e-12))
+            ),
             "learning_rate": float(optimizer.param_groups[0]["lr"]),
             "accumulation_size_effective": float(len(window)),
+            "train/step_time_ms": step_time_ms,
+            "train/forward_time_ms": window_forward_time * 1000.0,
+            "train/data_time_ms": window_data_time * 1000.0,
+            "train/backward_time_ms": backward_ms,
+            "train/optimizer_time_ms": optimizer_ms,
+            "train/samples_per_second": (
+                window_samples / max(step_time_ms / 1000.0, 1e-12)
+            ),
+            "train/tokens_per_second": (
+                window_stats["tokens"] / max(step_time_ms / 1000.0, 1e-12)
+            ),
+            "train/amp_scale": (
+                1.0 if scaler is None else float(scaler.get_scale())
+            ),
+            "train/overflow_steps_total": float(
+                state.skipped_optimizer_steps
+            ),
+            "train/skipped_steps_total": float(
+                state.skipped_optimizer_steps
+            ),
+            "train/memory_allocated_mb": (
+                torch.cuda.memory_allocated(device) / (1024 ** 2)
+                if device.type == "cuda"
+                else 0.0
+            ),
+            "train/memory_reserved_mb": (
+                torch.cuda.memory_reserved(device) / (1024 ** 2)
+                if device.type == "cuda"
+                else 0.0
+            ),
+            "train/max_memory_allocated_mb": (
+                torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+                if device.type == "cuda"
+                else 0.0
+            ),
+            **diagnostic_metrics_pending,
+            **optimizer_metrics,
+            **after_optimizer_metrics,
         }
+        if optimizer_report is not None:
+            step_metrics.update(
+                getattr(optimizer_report, "update_metrics", {})
+            )
+            if getattr(optimizer_report, "qk_clip_applied", False):
+                for name in tuple(step_metrics):
+                    if name.endswith("/qk_clip_active"):
+                        step_metrics[name] = 1.0
+            if hasattr(optimizer_report, "adamw_lr"):
+                step_metrics["lr/adamw"] = float(
+                    optimizer_report.adamw_lr
+                )
+                step_metrics["lr/muon"] = float(
+                    optimizer_report.muon_lr
+                )
         if (
             logger is not None
             and log_every is not None
@@ -181,11 +304,18 @@ def train_one_epoch(
         ):
             logger.log(state.optimizer_step, step_metrics)
         if on_optimizer_step is not None:
+            step_metrics["_alerts"] = diagnostic_alerts_pending
             on_optimizer_step(step_metrics)
         window.clear()
+        diagnostic_metrics_pending = {}
+        diagnostic_alerts_pending = ()
+        window_forward_time = 0.0
+        window_data_time = 0.0
+        window_samples = 0
 
     try:
         for batch_index, raw_batch in enumerate(dataloader):
+            window_data_time += time.perf_counter() - previous_batch_completed
             if max_batches is not None and batch_index >= max_batches:
                 break
             batch = move_batch_to_device(normalize_lm_batch(raw_batch), device)
@@ -196,13 +326,31 @@ def train_one_epoch(
                     int(batch["input_ids"].shape[1])
                 )
 
+            first_in_window = not window
+            diagnostic_kwargs = (
+                diagnostics.model_kwargs_for_step(state.optimizer_step + 1)
+                if diagnostics is not None and first_in_window
+                else {}
+            )
+            forward_started = time.perf_counter()
             with autocast_ctx(
                 device, enabled=amp_enabled, amp_dtype=amp_dtype
             ):
-                output = call_model(model, batch, use_mtp=use_mtp)
+                output = call_model(
+                    model,
+                    batch,
+                    use_mtp=use_mtp,
+                    extra_kwargs=diagnostic_kwargs,
+                )
                 contribution = extract_loss_contribution(output, batch)
+            window_forward_time += time.perf_counter() - forward_started
+            if diagnostics is not None and first_in_window:
+                diagnostic_metrics_pending = diagnostics.collect_output(
+                    output, step=state.optimizer_step + 1
+                )
 
             window.append(contribution)
+            window_samples += _batch_size(batch)
             all_contributions.append(
                 LossContribution(
                     ntp_loss_sum=contribution.ntp_loss_sum.detach(),
@@ -224,6 +372,7 @@ def train_one_epoch(
             state.tokens_seen += contribution.batch_tokens
             state.valid_ntp_tokens_seen += int(contribution.ntp_normalizer)
             state.valid_mtp_tokens_seen += int(contribution.mtp_normalizer)
+            previous_batch_completed = time.perf_counter()
 
             if len(window) == grad_accum_steps:
                 finish_window()

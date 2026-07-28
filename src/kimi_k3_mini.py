@@ -428,6 +428,7 @@ class KimiK3(nn.Module):
             mtp_logits=None if mtp_output is None else mtp_output.logits,
             hidden_states=backbone_output.hidden_states,
             backbone_diagnostics=backbone_output.diagnostics,
+            backbone_trace=backbone_output.hidden_state_trace,
             attnres_diagnostics=(
                 backbone_output.depth_outputs if attnres_flag else None
             ),

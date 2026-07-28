@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import torch
@@ -121,6 +122,15 @@ class GatedMLA(nn.Module):
         )
         updated_cache = base_cache.append(current_latent, current_mask)
         key, value = self.projections.reconstruct_kv(updated_cache.latent_kv)
+        # Lightweight QK-Clip control proxy. For approximately independent
+        # Q/K features, dot-product RMS scales as
+        # rms(Q) * rms(K) * sqrt(head_dim). Only one detached scalar survives.
+        with torch.no_grad():
+            self._last_qk_scale = (
+                query.detach().float().square().mean().sqrt()
+                * key.detach().float().square().mean().sqrt()
+                * math.sqrt(self.config.q_head_dim)
+            )
         query_positions = (
             previous_lengths[:, None]
             + torch.arange(tokens, device=hidden_states.device)[None, :]
@@ -153,6 +163,7 @@ class GatedMLA(nn.Module):
             diagnostics = build_mla_diagnostics(
                 query,
                 key,
+                value,
                 updated_cache.latent_kv,
                 gate,
                 probabilities,
@@ -160,6 +171,9 @@ class GatedMLA(nn.Module):
                 current_mask,
                 updated_cache.cache_elements,
                 self.config.full_kv_width,
+                raw_output,
+                final_output,
+                self._last_qk_scale,
             )
         return GatedMLAOutput(
             hidden_states=final_output,

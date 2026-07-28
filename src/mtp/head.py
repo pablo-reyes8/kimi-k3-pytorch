@@ -183,6 +183,7 @@ class KimiMTPHead(nn.Module):
     def _diagnostics(
         logits: torch.Tensor,
         hidden_states: torch.Tensor,
+        fusion_output: torch.Tensor,
         view: MTPTrainingView,
         block_diagnostics: dict[str, object] | None,
     ) -> MTPDiagnostics:
@@ -200,16 +201,26 @@ class KimiMTPHead(nn.Module):
                 == view.target_ids[valid]
             ).float().mean()
             mean_norm = hidden_states.float().norm(dim=-1)[valid].mean()
+            hidden_rms = (
+                hidden_states.float()[valid].square().mean().sqrt()
+            )
+            fusion_output_rms = (
+                fusion_output.float()[valid].square().mean().sqrt()
+            )
         else:
             zero = logits.detach().new_zeros((), dtype=torch.float32)
             entropy = zero
             accuracy = zero
             mean_norm = zero
+            hidden_rms = zero
+            fusion_output_rms = zero
         return MTPDiagnostics(
             valid_token_count=count,
             token_accuracy=accuracy.detach(),
             mean_logit_entropy=entropy.detach(),
             mean_hidden_norm=mean_norm.detach(),
+            hidden_rms=hidden_rms.detach(),
+            fusion_output_rms=fusion_output_rms.detach(),
             block=block_diagnostics,
         )
 
@@ -263,7 +274,7 @@ class KimiMTPHead(nn.Module):
         )
         diagnostics = (
             self._diagnostics(
-                logits, hidden_states, view, block_diagnostics
+                logits, hidden_states, fused, view, block_diagnostics
             )
             if return_diagnostics
             else None
