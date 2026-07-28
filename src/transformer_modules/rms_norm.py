@@ -44,8 +44,14 @@ class RMSNorm(nn.Module):
 
       original_dtype = x.dtype
 
-      # Compute RMS in float32 for numerical stability
-      x_float = x.float()
+      # Low-precision activations accumulate in FP32. FP32 and FP64 retain
+      # their native precision so reference/gradcheck paths are not rounded
+      # through FP32.
+      x_float = (
+          x.float()
+          if x.dtype in (torch.float16, torch.bfloat16)
+          else x
+      )
 
       mean_square = x_float.pow(2).mean(dim=-1, keepdim=True)
       inv_rms = torch.rsqrt(mean_square + self.eps)
