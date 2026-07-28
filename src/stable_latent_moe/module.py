@@ -84,6 +84,8 @@ class StableLatentMoE(nn.Module):
         )
         self._balance_accumulating = False
         self._balance_old_bias: torch.Tensor | None = None
+        self._balance_exact_scores: list[torch.Tensor] = []
+        self._balance_exact_cutoffs: list[torch.Tensor] = []
         self.reset_projection_parameters()
 
     def reset_projection_parameters(self) -> None:
@@ -104,26 +106,45 @@ class StableLatentMoE(nn.Module):
     def begin_balance_accumulation(self) -> None:
         if not self.training:
             raise RuntimeError("routing-bias accumulation is training-only")
-        if self.histogram_balancer is None:
-            raise RuntimeError("microbatch accumulation requires histogram QB")
+        if not self.config.enable_quantile_balancing:
+            raise RuntimeError("Quantile Balancing is disabled")
         if self._balance_accumulating:
             raise RuntimeError("balance accumulation is already active")
-        self.histogram_balancer.reset()
+        if self.histogram_balancer is not None:
+            self.histogram_balancer.reset()
         self._balance_old_bias = self.routing_bias.detach().clone()
+        self._balance_exact_scores.clear()
+        self._balance_exact_cutoffs.clear()
         self._balance_accumulating = True
 
     @torch.no_grad()
     def finalize_and_commit_balance(self):
         if not self._balance_accumulating:
             raise RuntimeError("balance accumulation is not active")
-        update = self.histogram_balancer.compute_next_bias(
-            self._balance_old_bias
-        )
+        if self.config.quantile_backend == "exact":
+            if not self._balance_exact_scores:
+                raise RuntimeError("cannot finalize an empty QB window")
+            update = self.exact_balancer.compute_next_bias(
+                torch.cat(self._balance_exact_scores, dim=0),
+                torch.cat(self._balance_exact_cutoffs, dim=0),
+                self._balance_old_bias,
+            )
+        else:
+            update = self.histogram_balancer.compute_next_bias(
+                self._balance_old_bias
+            )
         self.router.commit_next_bias(update.next_bias)
-        self.histogram_balancer.reset()
+        self.discard_balance_accumulation()
+        return update
+
+    @torch.no_grad()
+    def discard_balance_accumulation(self) -> None:
+        if self.histogram_balancer is not None:
+            self.histogram_balancer.reset()
+        self._balance_exact_scores.clear()
+        self._balance_exact_cutoffs.clear()
         self._balance_old_bias = None
         self._balance_accumulating = False
-        return update
 
     def _update_balance(
         self,
@@ -138,9 +159,9 @@ class StableLatentMoE(nn.Module):
         old_bias = router_output.routing_bias_before
         if self.config.quantile_backend == "exact":
             if self._balance_accumulating:
-                raise RuntimeError(
-                    "exact QB does not support histogram accumulation"
-                )
+                self._balance_exact_scores.append(raw_scores.detach())
+                self._balance_exact_cutoffs.append(cutoff.detach())
+                return None
             update = self.exact_balancer.compute_next_bias(
                 raw_scores, cutoff, old_bias
             )

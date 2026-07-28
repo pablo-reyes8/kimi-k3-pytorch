@@ -52,10 +52,16 @@ def save_checkpoint(
     model_config=None,
     training_config=None,
     history=None,
+    ema=None,
+    trainer_state=None,
+    curriculum=None,
+    metadata=None,
+    save_rng_state: bool = True,
 ) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
+        "format_version": 2,
         "model_state_dict": (model.module if hasattr(model, "module") else model).state_dict(),
         "optimizer_state_dict": optimizer.state_dict() if optimizer is not None else None,
         "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
@@ -65,7 +71,17 @@ def save_checkpoint(
         "model_config": _config_dict(model_config),
         "training_config": _config_dict(training_config),
         "history": history or {},
-        "rng_state": _rng_state(),
+        "rng_state": _rng_state() if save_rng_state else None,
+        "ema_state_dict": ema.state_dict() if ema is not None else None,
+        "trainer_state_dict": (
+            trainer_state.state_dict()
+            if trainer_state is not None
+            else None
+        ),
+        "curriculum_state_dict": (
+            curriculum.state_dict() if curriculum is not None else None
+        ),
+        "metadata": metadata or {},
     }
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(payload, temporary)
@@ -83,6 +99,9 @@ def load_checkpoint(
     map_location: str | torch.device = "cpu",
     strict: bool = True,
     restore_rng: bool = False,
+    ema=None,
+    trainer_state=None,
+    curriculum=None,
 ) -> Dict[str, Any]:
     payload = torch.load(Path(path), map_location=map_location, weights_only=False)
     raw_model = model.module if hasattr(model, "module") else model
@@ -96,12 +115,28 @@ def load_checkpoint(
             obj.load_state_dict(payload[key])
     if restore_rng:
         _restore_rng(payload.get("rng_state"))
+    if ema is not None and payload.get("ema_state_dict") is not None:
+        ema.load_state_dict(payload["ema_state_dict"], strict=strict)
+    if (
+        trainer_state is not None
+        and payload.get("trainer_state_dict") is not None
+    ):
+        trainer_state.load_state_dict(payload["trainer_state_dict"])
+    if (
+        curriculum is not None
+        and payload.get("curriculum_state_dict") is not None
+    ):
+        curriculum.load_state_dict(payload["curriculum_state_dict"])
     return {
+        "format_version": payload.get("format_version", 1),
         "epoch": payload.get("epoch", 0),
         "global_step": payload.get("global_step", 0),
         "model_config": payload.get("model_config"),
         "training_config": payload.get("training_config"),
         "history": payload.get("history", {}),
+        "trainer_state": payload.get("trainer_state_dict"),
+        "curriculum_state": payload.get("curriculum_state_dict"),
+        "metadata": payload.get("metadata", {}),
         "missing_keys": list(incompatible.missing_keys),
         "unexpected_keys": list(incompatible.unexpected_keys),
     }
