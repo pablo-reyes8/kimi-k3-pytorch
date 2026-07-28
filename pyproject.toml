@@ -16,6 +16,9 @@ dev = ["pytest>=8", "pyyaml>=6"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -s"
+markers = [
+    "optional_dependency: tests requiring an optional external oracle",
+]
 
 [tool.setuptools.packages.find]
 include = ["src*", "data*", "training*"]

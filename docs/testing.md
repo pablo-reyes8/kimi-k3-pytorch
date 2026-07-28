@@ -42,6 +42,7 @@ mathematical or behavioral test.
 | Hierarchical visual ablation | pooling equation/masks, stage grids, global-attention diagnostics, dynamic resolution, gradients, BF16 |
 | Swin visual ablation | exact window roundtrips, shifted-window masks, relative positions, patch-merging order, odd grids, gradients, BF16 |
 | Kimi primitives | SiTU bounds/equation/gradcheck, causal ShortConv full-cache equivalence, head-wise RMS independence, full-rank gate source/saturation, typed states, exact head reshapes, BF16 |
+| Kimi Delta Attention | K3 projections/decay, recurrent equations/invariants, UT solve and WY auxiliaries, chunk-size/route/gradient equivalence, prefix causality, masks, constant-size decode cache, BF16 and serialization |
 
 ## CPU command
 
