@@ -43,6 +43,7 @@ mathematical or behavioral test.
 | Swin visual ablation | exact window roundtrips, shifted-window masks, relative positions, patch-merging order, odd grids, gradients, BF16 |
 | Kimi primitives | SiTU bounds/equation/gradcheck, causal ShortConv full-cache equivalence, head-wise RMS independence, full-rank gate source/saturation, typed states, exact head reshapes, BF16 |
 | Kimi Delta Attention | K3 projections/decay, recurrent equations/invariants, UT solve and WY auxiliaries, chunk-size/route/gradient equivalence, prefix causality, masks, constant-size decode cache, BF16 and serialization |
+| Kimi Gated MLA | NoPE inspection/equivariance, shared latent KV equations, manual scalar/SDPA parity, causal global attention, full-rank gate, compressed-cache prefill/decode, unequal right-padding, complete gradients/gradchecks, BF16 and serialization |
 
 ## CPU command
 
