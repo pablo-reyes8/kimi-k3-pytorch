@@ -41,6 +41,7 @@ mathematical or behavioral test.
 | MoonViT visual | exact patch/attention/MLP equations, positional interpolation, masks, bias policy, RMSNorm, dynamic grids, pixel packing, projector, gradients, BF16, roundtrips, synthetic spatial overfit |
 | Hierarchical visual ablation | pooling equation/masks, stage grids, global-attention diagnostics, dynamic resolution, gradients, BF16 |
 | Swin visual ablation | exact window roundtrips, shifted-window masks, relative positions, patch-merging order, odd grids, gradients, BF16 |
+| Kimi primitives | SiTU bounds/equation/gradcheck, causal ShortConv full-cache equivalence, head-wise RMS independence, full-rank gate source/saturation, typed states, exact head reshapes, BF16 |
 
 ## CPU command
 

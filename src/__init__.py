@@ -1,5 +1,19 @@
 from .causal_lm import BaselineCausalLM, BaselineCausalLMConfig
 from .outputs import CausalLMOutput
+from .kimi_primitives import (
+    AttentionModuleOutput,
+    CausalShortConv1D,
+    FullRankOutputGate,
+    HeadwiseRMSNorm,
+    KDAProjectionOutput,
+    PrimitiveAttentionPostprocess,
+    ShortConvState,
+    SiTUGLU,
+    combine_heads,
+    situ_glu_activation,
+    softcap,
+    split_heads,
+)
 from .vision import (
     HierarchicalMoonViTEncoder,
     HierarchicalVisionConfig,
@@ -15,6 +29,18 @@ __all__ = [
     "BaselineCausalLM",
     "BaselineCausalLMConfig",
     "CausalLMOutput",
+    "AttentionModuleOutput",
+    "CausalShortConv1D",
+    "FullRankOutputGate",
+    "HeadwiseRMSNorm",
+    "KDAProjectionOutput",
+    "PrimitiveAttentionPostprocess",
+    "ShortConvState",
+    "SiTUGLU",
+    "combine_heads",
+    "situ_glu_activation",
+    "softcap",
+    "split_heads",
     "HierarchicalMoonViTEncoder",
     "HierarchicalVisionConfig",
     "MoonViTEncoder",
