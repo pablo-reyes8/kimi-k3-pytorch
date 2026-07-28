@@ -1,0 +1,29 @@
+mtp:
+  enabled: true
+  num_mtp_layers: 1
+  future_offset: 2
+  # Project default: the Kimi K3 report does not publish this coefficient.
+  loss_weight: 0.1
+  fusion_kind: concat_project
+  normalize_hidden: true
+  normalize_future_embedding: true
+  fusion_bias: false
+  share_main_lm_head: true
+  detach_backbone_hidden: false
+  ignore_index: -100
+  d_model: 7168
+  # Supplied by the future tokenizer/model orchestrator.
+  vocab_size: null
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: false
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 24
+    backend: two_phase
+  stable_latent_moe:
+    latent_dim: 3584
+    num_shared_experts: 2
+    num_routed_experts: 896
+    routed_experts_per_token: 16
+    shared_expert_hidden_dim: 3072
+    routed_expert_hidden_dim: 3072

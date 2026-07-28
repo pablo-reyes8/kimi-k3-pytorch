@@ -171,23 +171,29 @@ class StableLatentMoE(nn.Module):
         original_shape = inputs.shape
         flat_inputs = inputs.reshape(-1, self.config.d_model)
         shared_output = torch.zeros_like(flat_inputs)
+
         for expert in self.shared_experts:
             shared_output = shared_output + expert(flat_inputs)
+
         latent = self.down_projection(flat_inputs)
         need_balance = update_routing_bias or self._balance_accumulating
+
         router_output = self.router(
             flat_inputs,
             need_qb_cutoff=need_balance,
             return_full_scores=need_balance,
         )
+
         accumulation_dtype = policy_dtype(
             latent.dtype, self.config.routed_accumulation_dtype
+
         )
         dispatch = (
             reference_sparse_dispatch
             if self.config.routing_backend == "reference"
             else vectorized_sparse_dispatch
         )
+
         aggregate = dispatch(
             latent,
             self.routed_experts,
@@ -195,6 +201,7 @@ class StableLatentMoE(nn.Module):
             router_output.selected_weights,
             accumulation_dtype=accumulation_dtype,
         )
+
         normalized = self.routed_aggregate_norm(aggregate).to(latent.dtype)
         routed_output = self.up_projection(normalized)
         hidden_states = (shared_output + routed_output).reshape(original_shape)
@@ -231,6 +238,7 @@ class StableLatentMoE(nn.Module):
         router_output.raw_logits = None
         router_output.raw_scores = None
         router_output.biased_scores = None
+        
         return StableLatentMoEOutput(
             hidden_states=hidden_states,
             shared_output=(

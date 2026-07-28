@@ -1,0 +1,27 @@
+mtp:
+  enabled: true
+  num_mtp_layers: 1
+  future_offset: 2
+  loss_weight: 0.1
+  fusion_kind: concat_project
+  normalize_hidden: true
+  normalize_future_embedding: true
+  fusion_bias: false
+  share_main_lm_head: true
+  detach_backbone_hidden: false
+  ignore_index: -100
+  d_model: 16
+  vocab_size: 128
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: false
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 4
+    backend: eager
+  stable_latent_moe:
+    latent_dim: 8
+    num_shared_experts: 2
+    num_routed_experts: 4
+    routed_experts_per_token: 2
+    shared_expert_hidden_dim: 12
+    routed_expert_hidden_dim: 10

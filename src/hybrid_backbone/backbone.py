@@ -58,13 +58,17 @@ class HybridAttentionBackbone(nn.Module):
                 HybridAttentionGroup(layers, group_index=group_index)
             )
         self.groups = nn.ModuleList(groups)
-        self.final_global_layer = self._make_layer(
-            "gated_mla",
-            layer_index,
-            None,
-            None,
-            include_ffn=config.add_ffn_after_final_global,
-            is_final_global=True,
+        self.final_global_layer = (
+            self._make_layer(
+                "gated_mla",
+                layer_index,
+                None,
+                None,
+                include_ffn=config.add_ffn_after_final_global,
+                is_final_global=True,
+            )
+            if config.add_final_gated_mla
+            else None
         )
         self.final_norm = RMSNorm(config.d_model, eps=config.rms_norm_eps)
         if config.depth_mixing == "full":
@@ -217,9 +221,12 @@ class HybridAttentionBackbone(nn.Module):
 
     @property
     def layers(self) -> tuple[HybridAttentionLayer, ...]:
-        return tuple(
+        layers = tuple(
             layer for group in self.groups for layer in group.layers
-        ) + (self.final_global_layer,)
+        )
+        if self.final_global_layer is not None:
+            layers += (self.final_global_layer,)
+        return layers
 
     @property
     def attention_types(self) -> tuple[str, ...]:
@@ -368,25 +375,26 @@ class HybridAttentionBackbone(nn.Module):
             if output_diagnostics:
                 layer_diagnostics.extend(group_output.diagnostics)
 
-        final_cache = (
-            None if cache is None else cache.layer_caches[cache_cursor]
-        )
-        final_output = self.final_global_layer(
-            output,
-            mask,
-            final_cache,
-            use_cache=return_cache,
-            mode=mode,
-            output_diagnostics=output_diagnostics,
-            update_routing_bias=update_routing_bias,
-        )
-        output = final_output.hidden_states
-        if return_cache:
-            next_caches.append(final_output.cache)
-        if output_hidden_states:
-            recorded_states.append(output)
-        if output_diagnostics:
-            layer_diagnostics.append(final_output.diagnostics)
+        if self.final_global_layer is not None:
+            final_cache = (
+                None if cache is None else cache.layer_caches[cache_cursor]
+            )
+            final_output = self.final_global_layer(
+                output,
+                mask,
+                final_cache,
+                use_cache=return_cache,
+                mode=mode,
+                output_diagnostics=output_diagnostics,
+                update_routing_bias=update_routing_bias,
+            )
+            output = final_output.hidden_states
+            if return_cache:
+                next_caches.append(final_output.cache)
+            if output_hidden_states:
+                recorded_states.append(output)
+            if output_diagnostics:
+                layer_diagnostics.append(final_output.diagnostics)
 
         output = self.final_norm(output)
         if output_hidden_states:

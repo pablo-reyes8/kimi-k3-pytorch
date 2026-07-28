@@ -9,7 +9,7 @@ from .utils import count_parameters
 
 def parameter_counts(
     groups: nn.ModuleList,
-    final_global_layer: nn.Module,
+    final_global_layer: nn.Module | None,
     final_norm: nn.Module,
     final_output_attnres: nn.Module | None = None,
 ) -> dict[str, int]:
@@ -17,7 +17,9 @@ def parameter_counts(
         layer
         for group in groups
         for layer in group.layers
-    ] + [final_global_layer]
+    ]
+    if final_global_layer is not None:
+        layers.append(final_global_layer)
     return {
         "kda": sum(
             count_parameters(layer.attention)
@@ -64,7 +66,7 @@ def parameter_counts(
 def build_backbone_diagnostics(
     layer_diagnostics: tuple[dict[str, object], ...],
     groups: nn.ModuleList,
-    final_global_layer: nn.Module,
+    final_global_layer: nn.Module | None,
     final_norm: nn.Module,
     final_output_attnres: nn.Module | None,
     cache: HybridBackboneCache | None,

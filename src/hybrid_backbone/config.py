@@ -54,7 +54,7 @@ class HybridBackboneConfig:
                 "the Kimi K3 profile requires the explicit 3:1 pattern "
                 f"{CANONICAL_ATTENTION_PATTERN}"
             )
-        if not self.add_final_gated_mla:
+        if self.enforce_canonical_pattern and not self.add_final_gated_mla:
             raise ValueError("the Kimi K3 profile requires a final Gated MLA")
         if "kda" in self.attention_pattern and self.kda_config is None:
             raise ValueError("kda_config is required by attention_pattern")
