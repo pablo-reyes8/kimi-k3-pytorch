@@ -1,3 +1,9 @@
+
+<p align="center">
+  <img src="assets\header_image.png" width="1000"/>
+</p>
+
+
 # Kimi-K3 Mini
 
 ### A from-scratch, research-scale PyTorch implementation of Kimi K3
