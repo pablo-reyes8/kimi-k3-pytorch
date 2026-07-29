@@ -21,4 +21,4 @@ markers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["src*", "data*", "training*", "configuration*"]
+include = ["src*", "data*", "training*", "inference*", "configuration*"]

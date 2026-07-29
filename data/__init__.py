@@ -14,6 +14,7 @@ from .yaml_config import (
     LoaderConfig,
     build_dataloaders_from_yaml,
     load_data_config,
+    load_tokenizer_from_data_yaml,
 )
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "create_text_dataloaders",
     "build_dataloaders_from_yaml",
     "load_data_config",
+    "load_tokenizer_from_data_yaml",
     "normalize_lm_batch",
 ]

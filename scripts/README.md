@@ -3,9 +3,9 @@
 ## Entry points
 
 `train_kimi.py`
-: Public CLI for the three-YAML pipeline. It is the only script that starts
-  the high-level `train_kimiK3` orchestrator. `--validate-only` performs no
-  dataset build, model allocation or training.
+: Public CLI for a full-profile directory (or three explicit YAML paths). It
+  is the only script that starts the high-level `train_kimiK3` orchestrator.
+  `--validate-only` performs no dataset build, model allocation or training.
 
 `validate_data_config.py`
 : Validates the data schema. `--build` is opt-in because Hugging Face profiles
@@ -15,6 +15,11 @@
 `validate_model_config.py`
 : Validates all architecture dataclasses without allocating parameters.
   `--instantiate` is opt-in and still never performs a forward or training.
+
+`infer_kimi.py`
+: Restores a model YAML plus trained checkpoint and runs the native
+  KDA/MLA-cache autoregressive master function. Sampling can come from
+  `config/inference/*.yaml` and be overridden from CLI.
 
 ## Research and legacy utilities
 
@@ -34,10 +39,17 @@ Validate a complete T4 pipeline without running anything:
 
 ```bash
 python -m scripts.train_kimi \
-  --data-config config/data/tinystories.yaml \
-  --model-config config/kimi_k3/t4_15gb.yaml \
-  --training-config config/training/t4_15gb.yaml \
+  --profile config/kimi_full_pipeline/low_gpu \
   --validate-only
 ```
 
 Start it by removing `--validate-only`.
+
+Inference:
+
+```bash
+python -m scripts.infer_kimi \
+  --profile config/kimi_full_pipeline/low_gpu \
+  --checkpoint checkpoints/t4_15gb/kimi_k3_t4_15gb_epoch_0002.pt \
+  --prompt "Once upon a time"
+```

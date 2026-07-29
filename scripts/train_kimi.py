@@ -1,4 +1,4 @@
-"""Train Kimi K3 from exactly three YAML files.
+"""Train Kimi K3 from one complete profile or three explicit YAML files.
 
 Use ``--validate-only`` to check the complete contract without allocating
 datasets, model weights, optimizer state or running training.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 
+from configuration import resolve_kimi_pipeline_profile
 from data import build_dataloaders_from_yaml, load_data_config
 from src import build_model_from_yaml, load_model_config
 from training import (
@@ -19,11 +20,15 @@ from training import (
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
-        description="Kimi K3 three-YAML training entrypoint"
+        description="Kimi K3 full-profile training entrypoint"
     )
-    result.add_argument("--data-config", required=True)
-    result.add_argument("--model-config", required=True)
-    result.add_argument("--training-config", required=True)
+    result.add_argument(
+        "--profile",
+        help="directory containing data.yaml, model.yaml and training.yaml",
+    )
+    result.add_argument("--data-config")
+    result.add_argument("--model-config")
+    result.add_argument("--training-config")
     result.add_argument(
         "--validate-only",
         action="store_true",
@@ -33,10 +38,35 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
-    args = parser().parse_args(argv)
-    data_config = load_data_config(args.data_config)
-    model_config = load_model_config(args.model_config)
-    training_config = load_training_config(args.training_config)
+    argument_parser = parser()
+    args = argument_parser.parse_args(argv)
+    explicit = (
+        args.data_config,
+        args.model_config,
+        args.training_config,
+    )
+    if args.profile:
+        if any(explicit):
+            argument_parser.error(
+                "--profile cannot be combined with individual YAML paths"
+            )
+        profile = resolve_kimi_pipeline_profile(args.profile)
+        data_path, model_path, training_path = (
+            profile.data,
+            profile.model,
+            profile.training,
+        )
+    else:
+        if not all(explicit):
+            argument_parser.error(
+                "pass --profile or all of --data-config, --model-config "
+                "and --training-config"
+            )
+        data_path, model_path, training_path = explicit
+
+    data_config = load_data_config(data_path)
+    model_config = load_model_config(model_path)
+    training_config = load_training_config(training_path)
     validate_pipeline_compatibility(
         training_config,
         model_config=model_config,
@@ -58,13 +88,13 @@ def main(argv=None) -> int:
         )
         return 0
 
-    data = build_dataloaders_from_yaml(args.data_config)
+    data = build_dataloaders_from_yaml(data_path)
     model = build_model_from_yaml(
-        args.model_config,
+        model_path,
         data_bundle=data,
     )
     train_kimi_from_yaml(
-        args.training_config,
+        training_path,
         model=model,
         data=data,
     )

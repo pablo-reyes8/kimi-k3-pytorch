@@ -19,10 +19,12 @@ from configuration.yaml_utils import (
 from training.context_curriculum import ProgressiveContextCollator
 
 from .synthetic_long_context_retrieval import (
+    SimpleWordTokenizer,
     SyntheticRetrievalConfig,
     create_synthetic_retrieval_dataloaders,
 )
 from .text_datasets import (
+    Tokenizer,
     TextDataloaderConfig,
     create_text_dataloaders,
 )
@@ -290,10 +292,40 @@ def build_dataloaders_from_yaml(path: str | Path) -> DataBundle:
     )
 
 
+def load_tokenizer_from_data_yaml(path: str | Path):
+    """Reconstruct only the tokenizer needed by inference.
+
+    Synthetic tokenizers are deterministic. Hugging Face profiles require the
+    tokenizer cache created during data preparation and never download here.
+    """
+    config = load_data_config(path)
+    if config.kind == "synthetic_retrieval":
+        tokenizer = SimpleWordTokenizer()
+        tokenizer.build_vocab(config.dataset)
+        return tokenizer
+    tokenizer_path = config.dataset.tokenizer_path
+    if tokenizer_path is None:
+        raise ConfigError(
+            "HF inference requires data.dataset.tokenizer_path"
+        )
+    resolved = Path(tokenizer_path).expanduser()
+    if not resolved.is_file():
+        raise FileNotFoundError(
+            "cached tokenizer not found; build the data pipeline first: "
+            f"{resolved.resolve()}"
+        )
+    if Tokenizer is None:
+        raise ImportError(
+            'loading a cached tokenizer requires pip install -e ".[data]"'
+        )
+    return Tokenizer.from_file(str(resolved))
+
+
 __all__ = [
     "DataBundle",
     "DataPipelineConfig",
     "LoaderConfig",
     "build_dataloaders_from_yaml",
+    "load_tokenizer_from_data_yaml",
     "load_data_config",
 ]

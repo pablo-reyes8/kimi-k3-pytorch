@@ -1,11 +1,12 @@
 # Configuration profiles
 
-The public training pipeline consumes three independent YAML files:
+The public training pipeline consumes one self-contained profile directory:
 
 ```text
-config/data/*.yaml       -> build_dataloaders_from_yaml
-config/kimi_k3/*.yaml    -> build_model_from_yaml
-config/training/*.yaml   -> train_kimi_from_yaml
+config/kimi_full_pipeline/<profile>/
+├── data.yaml       -> build_dataloaders_from_yaml
+├── model.yaml      -> build_model_from_yaml
+└── training.yaml   -> train_kimi_from_yaml
 ```
 
 All parsers reject unknown keys. A typo is therefore an error, not an ignored
@@ -13,12 +14,14 @@ experiment setting.
 
 ## Recommended profile sets
 
-| Target | Data | Model | Training |
-|---|---|---|---|
-| CPU syntax/smoke | `synthetic_cpu_smoke.yaml` | `cpu_tiny.yaml` | `cpu_yaml_smoke.yaml` |
-| NVIDIA T4, ~15 GB usable | `tinystories.yaml` | `t4_15gb.yaml` | `t4_15gb.yaml` |
-| 24 GB GPU | `tinystories_1024.yaml` | `gpu_24gb.yaml` | `gpu_24gb.yaml` |
-| 48 GB GPU + PCC | `fineweb_edu_8192.yaml` | `gpu_48gb.yaml` | `gpu_48gb_pcc.yaml` |
+| Directory | Target |
+|---|---|
+| `cpu_smoke/` | CPU syntax/smoke |
+| `low_gpu/` | NVIDIA T4, about 15 GB usable |
+| `gpu_24gb/` | 24 GB research GPU |
+| `gpu_48gb/` | 48 GB GPU + PCC |
+| `gpu_80gb/` | 80 GB GPU + PCC |
+| `canonical/` | Full architecture/training metadata |
 
 The GPU profiles are conservative starting points, not universal memory
 guarantees. Available memory also depends on PyTorch/CUDA versions, allocator
@@ -36,6 +39,8 @@ path expected by the larger profiles.
   NTP/MTP loss settings, Muon/AdamW parameters, scheduler, diagnostics, PCC,
   EMA, checkpoints and previews.
 
-`progressive_context_curriculum.yaml` remains a readable PCC reference
-fragment. Standalone executable PCC configuration is
-`training/gpu_48gb_pcc.yaml`.
+Legacy component and reference fragments remain in their specialized config
+directories. They are not complete pipeline profiles. See
+`kimi_full_pipeline/README.md` for the new standard.
+
+Generation-time greedy and sampling profiles live under `config/inference/`.

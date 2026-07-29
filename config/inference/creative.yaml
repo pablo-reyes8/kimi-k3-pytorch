@@ -1,0 +1,16 @@
+inference:
+  max_new_tokens: 128
+  do_sample: true
+  temperature: 0.8
+  top_k: 50
+  top_p: 0.95
+  repetition_penalty: 1.05
+  eos_token_id: null
+  pad_token_id: null
+  add_bos_token: true
+  skip_special_tokens: true
+  seed: 1337
+  device: auto
+  return_scores: false
+  return_cache: true
+  max_total_tokens: null

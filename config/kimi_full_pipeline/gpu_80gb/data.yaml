@@ -1,0 +1,22 @@
+data:
+  name: fineweb_edu_8192_gpu_80gb
+  kind: hf_text
+  dataset:
+    preset_name: fineweb_edu_10bt_mincols
+    block_size: 8192
+    tokenizer_path: data/cache/tokenizers/fineweb_edu_64000.json
+    vocab_size: 64000
+    min_frequency: 2
+    max_tokenizer_documents: 200000
+    max_train_documents: 100000
+    max_validation_documents: null
+  loader:
+    batch_size: 1
+    validation_batch_size: 1
+    num_workers: 8
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: true
+    seed: 42

@@ -3,17 +3,21 @@
 ## Public API
 
 ```python
+from configuration import resolve_kimi_pipeline_profile
 from data import build_dataloaders_from_yaml
 from src import build_model_from_yaml
 from training import train_kimi_from_yaml
 
-data = build_dataloaders_from_yaml("config/data/tinystories.yaml")
+profile = resolve_kimi_pipeline_profile(
+    "config/kimi_full_pipeline/low_gpu"
+)
+data = build_dataloaders_from_yaml(profile.data)
 model = build_model_from_yaml(
-    "config/kimi_k3/t4_15gb.yaml",
+    profile.model,
     data_bundle=data,
 )
 result = train_kimi_from_yaml(
-    "config/training/t4_15gb.yaml",
+    profile.training,
     model=model,
     data=data,
 )
@@ -87,9 +91,7 @@ Configuration-only validation:
 
 ```bash
 python -m scripts.train_kimi \
-  --data-config config/data/tinystories.yaml \
-  --model-config config/kimi_k3/t4_15gb.yaml \
-  --training-config config/training/t4_15gb.yaml \
+  --profile config/kimi_full_pipeline/low_gpu \
   --validate-only
 ```
 
@@ -98,8 +100,10 @@ Remove `--validate-only` to build data/model and start the master trainer.
 Individual validation:
 
 ```bash
-python -m scripts.validate_data_config config/data/tinystories.yaml
-python -m scripts.validate_model_config config/kimi_k3/t4_15gb.yaml
+python -m scripts.validate_data_config \
+  config/kimi_full_pipeline/low_gpu/data.yaml
+python -m scripts.validate_model_config \
+  config/kimi_full_pipeline/low_gpu/model.yaml
 ```
 
 `validate_data_config --build` and `validate_model_config --instantiate` are

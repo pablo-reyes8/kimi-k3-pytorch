@@ -68,11 +68,13 @@ training:
 
 ```bash
 python -m scripts.train_kimi \
-  --data-config config/data/tinystories.yaml \
-  --model-config config/kimi_k3/t4_15gb.yaml \
-  --training-config config/training/t4_15gb.yaml \
+  --profile config/kimi_full_pipeline/low_gpu \
   --validate-only
 ```
+
+Checkpoint inference is documented in [`inference/README.md`](inference/README.md)
+and demonstrated in
+[`notebooks/inference_kimi_k3_from_checkpoint.ipynb`](notebooks/inference_kimi_k3_from_checkpoint.ipynb).
 
 The full testing philosophy and invariant matrix are documented in
 [`docs/testing.md`](docs/testing.md).

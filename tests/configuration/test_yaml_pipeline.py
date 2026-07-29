@@ -4,7 +4,7 @@ import importlib
 
 import pytest
 
-from configuration import ConfigError
+from configuration import ConfigError, resolve_kimi_pipeline_profile
 from data import build_dataloaders_from_yaml, load_data_config
 from src import kimi_k3_cpu_tiny_config, load_model_config
 from training import (
@@ -15,16 +15,25 @@ from training import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
+PROFILE_ROOT = ROOT / "config/kimi_full_pipeline"
+PROFILES = (
+    "cpu_smoke",
+    "low_gpu",
+    "gpu_24gb",
+    "gpu_48gb",
+    "gpu_80gb",
+    "canonical",
+)
 
 
 @pytest.mark.parametrize(
     "relative",
     [
-        "config/data/synthetic_cpu_smoke.yaml",
         "config/data/synthetic_retrieval.yaml",
-        "config/data/tinystories.yaml",
-        "config/data/tinystories_1024.yaml",
-        "config/data/fineweb_edu_8192.yaml",
+        *[
+            f"config/kimi_full_pipeline/{name}/data.yaml"
+            for name in PROFILES
+        ],
     ],
 )
 def test_public_data_profiles_parse_without_building_or_downloading(relative):
@@ -33,31 +42,25 @@ def test_public_data_profiles_parse_without_building_or_downloading(relative):
     assert config.loader.batch_size > 0
 
 
-@pytest.mark.parametrize(
-    "relative",
-    [
-        "config/kimi_k3/cpu_tiny.yaml",
-        "config/kimi_k3/t4_15gb.yaml",
-        "config/kimi_k3/gpu_24gb.yaml",
-        "config/kimi_k3/gpu_48gb.yaml",
-        "config/kimi_k3/canonical.yaml",
-    ],
-)
-def test_public_model_profiles_build_typed_configs_without_weights(relative):
-    config = load_model_config(ROOT / relative)
+@pytest.mark.parametrize("profile_name", PROFILES)
+def test_public_model_profiles_build_typed_configs_without_weights(
+    profile_name,
+):
+    profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
+    config = load_model_config(profile.model)
     assert config.d_model == config.backbone.d_model
     assert config.backbone.num_transformer_layers > 0
 
 
 def test_cpu_yaml_reproduces_the_programmatic_tiny_architecture_exactly():
     assert load_model_config(
-        ROOT / "config/kimi_k3/cpu_tiny.yaml"
+        PROFILE_ROOT / "cpu_smoke/model.yaml"
     ) == kimi_k3_cpu_tiny_config()
 
 
 def test_synthetic_yaml_builds_cpu_loaders_without_training():
     bundle = build_dataloaders_from_yaml(
-        ROOT / "config/data/synthetic_cpu_smoke.yaml"
+        PROFILE_ROOT / "cpu_smoke/data.yaml"
     )
     batch = next(iter(bundle.train_loader))
     assert batch["input_ids"].shape[0] == 4
@@ -67,55 +70,23 @@ def test_synthetic_yaml_builds_cpu_loaders_without_training():
     assert next(iter(rebuilt))["input_ids"].shape[1] <= 16
 
 
-@pytest.mark.parametrize(
-    "relative",
-    [
-        "config/training/cpu_yaml_smoke.yaml",
-        "config/training/t4_15gb.yaml",
-        "config/training/gpu_24gb.yaml",
-        "config/training/gpu_48gb_pcc.yaml",
-    ],
-)
-def test_public_training_profiles_parse_every_control_block(relative):
-    config = load_training_config(ROOT / relative)
+@pytest.mark.parametrize("profile_name", PROFILES)
+def test_public_training_profiles_parse_every_control_block(profile_name):
+    profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
+    config = load_training_config(profile.training)
     assert config.training.epochs > 0
     assert config.loss.ignore_index < 0
     assert config.optimizer.adamw_lr > 0
     assert config.checkpoint.run_name
 
 
-@pytest.mark.parametrize(
-    "data_path,model_path,training_path",
-    [
-        (
-            "config/data/synthetic_cpu_smoke.yaml",
-            "config/kimi_k3/cpu_tiny.yaml",
-            "config/training/cpu_yaml_smoke.yaml",
-        ),
-        (
-            "config/data/tinystories.yaml",
-            "config/kimi_k3/t4_15gb.yaml",
-            "config/training/t4_15gb.yaml",
-        ),
-        (
-            "config/data/tinystories_1024.yaml",
-            "config/kimi_k3/gpu_24gb.yaml",
-            "config/training/gpu_24gb.yaml",
-        ),
-        (
-            "config/data/fineweb_edu_8192.yaml",
-            "config/kimi_k3/gpu_48gb.yaml",
-            "config/training/gpu_48gb_pcc.yaml",
-        ),
-    ],
-)
-def test_recommended_three_yaml_sets_are_cross_compatible(
-    data_path, model_path, training_path
-):
+@pytest.mark.parametrize("profile_name", PROFILES)
+def test_recommended_three_yaml_sets_are_cross_compatible(profile_name):
+    profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
     validate_pipeline_compatibility(
-        load_training_config(ROOT / training_path),
-        model_config=load_model_config(ROOT / model_path),
-        data_config=load_data_config(ROOT / data_path),
+        load_training_config(profile.training),
+        model_config=load_model_config(profile.model),
+        data_config=load_data_config(profile.data),
     )
 
 
@@ -150,10 +121,10 @@ def test_yaml_training_adapter_only_delegates_to_master(monkeypatch):
     trainer_module = importlib.import_module("training.train_kimi_k3")
     monkeypatch.setattr(trainer_module, "train_kimiK3", fake_master)
     model_config = load_model_config(
-        ROOT / "config/kimi_k3/t4_15gb.yaml"
+        PROFILE_ROOT / "low_gpu/model.yaml"
     )
     data_config = load_data_config(
-        ROOT / "config/data/tinystories.yaml"
+        PROFILE_ROOT / "low_gpu/data.yaml"
     )
     data = SimpleNamespace(
         config=data_config,
@@ -164,7 +135,7 @@ def test_yaml_training_adapter_only_delegates_to_master(monkeypatch):
     )
     model = SimpleNamespace(config=model_config)
     result = train_kimi_from_yaml(
-        ROOT / "config/training/t4_15gb.yaml",
+        PROFILE_ROOT / "low_gpu/training.yaml",
         model=model,
         data=data,
     )
@@ -186,12 +157,12 @@ def test_yaml_pcc_delegates_context_loader_factory(monkeypatch):
     )
     model = SimpleNamespace(
         config=load_model_config(
-            ROOT / "config/kimi_k3/gpu_48gb.yaml"
+            PROFILE_ROOT / "gpu_48gb/model.yaml"
         )
     )
     data = SimpleNamespace(
         config=load_data_config(
-            ROOT / "config/data/fineweb_edu_8192.yaml"
+            PROFILE_ROOT / "gpu_48gb/data.yaml"
         ),
         train_loader="static",
         val_loader=None,
@@ -199,7 +170,7 @@ def test_yaml_pcc_delegates_context_loader_factory(monkeypatch):
         tokenizer="tokenizer",
     )
     train_kimi_from_yaml(
-        ROOT / "config/training/gpu_48gb_pcc.yaml",
+        PROFILE_ROOT / "gpu_48gb/training.yaml",
         model=model,
         data=data,
     )

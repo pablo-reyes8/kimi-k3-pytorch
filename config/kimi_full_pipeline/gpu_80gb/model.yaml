@@ -1,0 +1,63 @@
+# Large single-accelerator research profile. Memory use is hardware/backend
+# dependent; validate allocation before launching a real run.
+model:
+  name: kimi_k3_gpu_80gb_multimodal
+  architecture: kimi_k3
+  vocab_size: 64000
+  d_model: 1536
+  num_heads: 24
+  num_hybrid_groups: 6
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: true
+  use_data_special_tokens: true
+  pad_token_id: 0
+  bos_token_id: 1
+  eos_token_id: 2
+  image_token_id: 4
+  video_token_id: 5
+  tie_word_embeddings: true
+  initializer_range: 0.02
+  kda:
+    key_head_dim: 64
+    short_conv_kernel_size: 4
+    chunk_size: 64
+    secondary_tile_size: 16
+    accumulate_state_in_fp32: true
+  mla:
+    q_head_dim: 64
+    kv_latent_dim: 1536
+    attention_backend: auto
+    keep_attention_output_fp32: true
+  moe:
+    latent_dim: 768
+    num_shared_experts: 2
+    num_routed_experts: 64
+    routed_experts_per_token: 8
+    shared_expert_hidden_dim: 2048
+    routed_expert_hidden_dim: 1536
+    routing_backend: vectorized
+    quantile_backend: histogram
+    enable_quantile_balancing: true
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 8
+    backend: two_phase
+  vision:
+    enabled: true
+    type: moonvit
+    image_size: 224
+    patch_size: 14
+    embed_dim: 768
+    depth: 12
+    num_heads: 12
+    use_cls_token: false
+    use_pixel_shuffle: true
+    projector:
+      hidden_dim: 1536
+  mtp:
+    enabled: true
+    loss_weight: 0.1
+    attention_residual:
+      mode: block
+      sublayers_per_depth_block: 8
+      backend: two_phase
