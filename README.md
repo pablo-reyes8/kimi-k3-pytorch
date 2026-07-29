@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/header_image.png" width="1000"/>
+  <img src="assets/header_image.png" width="1000" alt="Kimi-K3 Mini: from-scratch PyTorch implementation"/>
 </p>
 
-# Kimi K3
+--- 
 
-### From 213M single-T4 targets to the canonical Kimi K3 topology—in pure PyTorch
+### A research-scale Kimi K3 reproduction—from 213M single-T4 profiles to the canonical topology in pure PyTorch
 
 [![CI](https://github.com/pablo-reyes8/kimi-k3/actions/workflows/ci.yml/badge.svg)](https://github.com/pablo-reyes8/kimi-k3/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -12,16 +12,9 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active_research-orange.svg)](#project-status)
 
-Kimi-K3 Mini is a pure-PyTorch implementation of the principal architectural,
-training and inference mechanisms described or combined in Kimi K3. It scales
-the system down into readable modules that can be validated on CPU, composed
-from strict YAML profiles and progressively enlarged for real experiments.
+Kimi-K3 Mini is a pure-PyTorch reproduction of the core architectural, training, and inference mechanisms introduced in Kimi K3. It scales the frontier system down into readable, modular components that you can validate locally on a CPU, compose via strict YAML profiles, and rapidly scale up for real GPU experiments.
 
-This is not a generic Transformer renamed after Kimi. The repository includes
-Kimi Delta Attention, Gated Multi-head Latent Attention, the hybrid 3:1
-backbone, Stable LatentMoE, Attention Residuals, MoonViT integration, MTP,
-Kimi-aware optimization, progressive context training and native cached
-autoregressive inference.
+This is not just a Transformer renamed after Kimi. The repository delivers a faithful, from-scratch reconstruction of the paper's main innovations: Kimi Delta Attention, Gated Multi-head Latent Attention, the hybrid 3:1 backbone, and Stable LatentMoE. Built with multimodal research in mind, it also includes native MoonViT integration, Attention Residuals, MTP, progressive context training, and cached autoregressive inference.
 
 > [!IMPORTANT]
 > This is an independent research implementation. It is not affiliated with
@@ -46,7 +39,6 @@ autoregressive inference.
 - [Project status](#project-status)
 - [Citation and license](#citation-and-license)
 
-
 ## Why this repository exists
 
 Large-model reports are easiest to understand when their mechanisms can be
@@ -63,8 +55,7 @@ isolated, inspected and tested. This project provides:
 The canonical topology is represented as validated metadata, while smaller
 profiles make the same composition practical for local experimentation.
 The architectural reference bundled with the repository is
-[*Kimi K3: Open Frontier Intelligence*](paper/k3_tech_report.pdf).
-
+[_Kimi K3: Open Frontier Intelligence_](paper/k3_tech_report.pdf).
 
 ## Complete YAML profiles
 
@@ -80,16 +71,16 @@ config/kimi_full_pipeline/<profile>/
 
 ### Choose a compute budget
 
-| Profile          | Total / active parameters | Approx. train compute | GPU target           |                        Context | Data                |
-| ---------------- | ------------------------: | --------------------: | -------------------- | -----------------------------: | ------------------- |
-| `cpu_smoke`    |             0.05M / 0.04M |    <0.001 GFLOP/token | CPU                  |                             32 | Synthetic retrieval |
-| `low_gpu`      |             87.2M / 56.6M |      0.34 GFLOP/token | Conservative T4      |                            512 | WikiText-2          |
+| Profile        | Total / active parameters | Approx. train compute | GPU target                   |                        Context | Data                |
+| -------------- | ------------------------: | --------------------: | ---------------------------- | -----------------------------: | ------------------- |
+| `cpu_smoke`    |             0.05M / 0.04M |    <0.001 GFLOP/token | CPU                          |                             32 | Synthetic retrieval |
+| `low_gpu`      |             87.2M / 56.6M |      0.34 GFLOP/token | Conservative T4              |                            512 | WikiText-2          |
 | `t4_wikitext`  |           212.9M / 108.5M |      0.65 GFLOP/token | T4 16 GB (~15 usable) target |                          1,024 | WikiText-2          |
-| `t4_retrieval` |           246.6M / 120.2M |      0.72 GFLOP/token | T4 16 GB (~15 usable) target |               512 → 2,048 PCC | Synthetic retrieval |
-| `gpu_24gb`     |           371.3M / 190.9M |      1.15 GFLOP/token | 24 GB GPU            |                          1,024 | FineWeb 10BT        |
-| `gpu_48gb`     |         1.482B / ~556.7M |      ~3.34 GFLOP/token | 48 GB GPU            |                      8,192 PCC | FineWeb 100BT       |
-| `gpu_80gb`     |         ≥7.66B / ≥1.91B |   ≥11.46 GFLOP/token | 80 GB GPU            |                      8,192 PCC | FineWeb 350BT       |
-| `canonical`    |               2.8T / 104B |     ≈624 GFLOP/token | Distributed metadata | 8,192 recipe / 1M architecture | FineWeb 350BT       |
+| `t4_retrieval` |           246.6M / 120.2M |      0.72 GFLOP/token | T4 16 GB (~15 usable) target |                512 → 2,048 PCC | Synthetic retrieval |
+| `gpu_24gb`     |           371.3M / 190.9M |      1.15 GFLOP/token | 24 GB GPU                    |                          1,024 | FineWeb 10BT        |
+| `gpu_48gb`     |          1.482B / ~556.7M |     ~3.34 GFLOP/token | 48 GB GPU                    |                      8,192 PCC | FineWeb 100BT       |
+| `gpu_80gb`     |           ≥7.66B / ≥1.91B |    ≥11.46 GFLOP/token | 80 GB GPU                    |                      8,192 PCC | FineWeb 350BT       |
+| `canonical`    |               2.8T / 104B |      ≈624 GFLOP/token | Distributed metadata         | 8,192 recipe / 1M architecture | FineWeb 350BT       |
 
 Active-parameter estimates account for sparse top-k experts. Training compute
 uses the common `6 × active parameters` approximation per token. It is a scale
@@ -104,7 +95,7 @@ The new T4 profiles use the small vocabulary or corpus size differently:
 retrieval spends the saved embedding budget on width and context, while
 WikiText keeps a larger language vocabulary.
 
-| Architecture field        |         `t4_retrieval` |          `t4_wikitext` | Canonical metadata |
+| Architecture field        |           `t4_retrieval` |            `t4_wikitext` | Canonical metadata |
 | ------------------------- | -----------------------: | -----------------------: | -----------------: |
 | Total / active parameters |          246.6M / 120.2M |          212.9M / 108.5M |        2.8T / 104B |
 | Hybrid attention stack    |            9 KDA + 4 MLA |            9 KDA + 4 MLA |    69 KDA + 24 MLA |
@@ -113,7 +104,7 @@ WikiText keeps a larger language vocabulary.
 | Routed experts            |                12, Top-2 |                12, Top-2 |        896, Top-16 |
 | Latent MoE width          |                      352 |                      320 |              3,584 |
 | Vocabulary                |  2,048 controlled tokens |       16K byte-level BPE |               160K |
-| Context recipe            |     PCC: 512 → 1K → 2K |                 Fixed 1K |      Configured 8K |
+| Context recipe            |       PCC: 512 → 1K → 2K |                 Fixed 1K |      Configured 8K |
 | Optimizer                 |    Per-Head Muon + AdamW |    Per-Head Muon + AdamW |       Muon + AdamW |
 | Vision                    | Disabled for T4 headroom | Disabled for T4 headroom |            MoonViT |
 
@@ -166,18 +157,17 @@ Interactive walkthroughs:
 Unknown YAML fields fail loudly, and cross-profile contracts are validated
 before the data or model is built.
 
-
 ## Implementation status
 
 | Area                    | Included                                                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Kimi Delta Attention    | Recurrent, chunkwise, prefill and decode paths; short-convolution state; data-dependent decay; FP32 accumulation |
 | Gated MLA               | NoPE global attention, compressed latent KV, full-rank output gate, manual/SDPA backends and cache               |
-| Hybrid backbone         | Repeated `3 KDA + 1 Gated MLA`, final global MLA and synchronized heterogeneous cache                           |
+| Hybrid backbone         | Repeated `3 KDA + 1 Gated MLA`, final global MLA and synchronized heterogeneous cache                            |
 | Stable LatentMoE        | Shared experts, latent routed experts, sparse top-k dispatch, exact/histogram Quantile Balancing                 |
 | Attention Residuals     | Full and Block AttnRes with eager and exact two-phase execution                                                  |
 | Vision                  | MoonViT, hierarchical and Swin variants, pixel shuffle, projection and image/video token composition             |
-| MTP                     | One auxiliary `x[t+2]` prediction group with normalized fusion and shared LM head                               |
+| MTP                     | One auxiliary `x[t+2]` prediction group with normalized fusion and shared LM head                                |
 | Objectives              | NTP, MTP, trajectory SFT, policy optimization and multi-teacher on-policy distillation                           |
 | Training                | Train/eval epochs, AMP, accumulation, EMA, checkpoints, scheduler, previews and structured diagnostics           |
 | Kimi optimizers         | AdamW, Muon/AdamW hybrid, per-head QKV handling and QK-Clip                                                      |
@@ -273,11 +263,11 @@ Interactive examples:
 The data orchestrator owns tokenization, causal blocks, loaders and the
 context-aware loader factory used by PCC.
 
-| Family                    | Presets                                                    |
-| ------------------------- | ---------------------------------------------------------- |
-| Local synthetic           | Deterministic long-context key/value retrieval             |
-| Compact Hugging Face text | WikiText-2, TinyStories, AG News, IMDB, MiniPile           |
-| Educational web           | FineWeb-Edu 10BT-mincols                                   |
+| Family                    | Presets                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Local synthetic           | Deterministic long-context key/value retrieval       |
+| Compact Hugging Face text | WikiText-2, TinyStories, AG News, IMDB, MiniPile     |
+| Educational web           | FineWeb-Edu 10BT-mincols                             |
 | Progressive LLM scale     | FineWeb`sample-10BT`, `sample-100BT`, `sample-350BT` |
 
 Hugging Face profiles can cap tokenizer, train and validation documents and
