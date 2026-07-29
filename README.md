@@ -4,9 +4,7 @@
 </p>
 
 
-# Kimi-K3 Mini
-
-### A from-scratch, research-scale PyTorch implementation of Kimi K3
+## A from-scratch, research-scale PyTorch implementation of Kimi K3
 
 [![CI](https://github.com/pablo-reyes8/kimi-k3/actions/workflows/ci.yml/badge.svg)](https://github.com/pablo-reyes8/kimi-k3/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
