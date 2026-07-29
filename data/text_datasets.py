@@ -65,6 +65,7 @@ class TextDataloaderConfig:
     max_tokenizer_documents: Optional[int] = 50_000
     max_train_documents: Optional[int] = 20_000
     max_validation_documents: Optional[int] = 2_000
+    streaming: bool = False
 
     def __post_init__(self) -> None:
         if self.block_size is not None and self.block_size <= 0:
@@ -145,6 +146,36 @@ HF_TEXT_DATASETS: Dict[str, HFTextDatasetPreset] = {
         validation_split=None,
         recommended_block_size=512,
         notes="Educational web sample; use streaming or max_*_documents for local runs.",
+    ),
+    "fineweb_10bt": HFTextDatasetPreset(
+        name="fineweb_10bt",
+        dataset_name="HuggingFaceFW/fineweb",
+        subset="sample-10BT",
+        text_field="text",
+        train_split="train",
+        validation_split=None,
+        recommended_block_size=2048,
+        notes="FineWeb 10B-token sample; streaming is strongly recommended.",
+    ),
+    "fineweb_100bt": HFTextDatasetPreset(
+        name="fineweb_100bt",
+        dataset_name="HuggingFaceFW/fineweb",
+        subset="sample-100BT",
+        text_field="text",
+        train_split="train",
+        validation_split=None,
+        recommended_block_size=4096,
+        notes="FineWeb 100B-token sample for larger pretraining experiments.",
+    ),
+    "fineweb_350bt": HFTextDatasetPreset(
+        name="fineweb_350bt",
+        dataset_name="HuggingFaceFW/fineweb",
+        subset="sample-350BT",
+        text_field="text",
+        train_split="train",
+        validation_split=None,
+        recommended_block_size=8192,
+        notes="FineWeb 350B-token sample; never load it without streaming/caps.",
     ),
 }
 
@@ -319,6 +350,7 @@ def create_hf_text_dataloaders(
     max_tokenizer_documents: Optional[int] = 50_000,
     max_train_documents: Optional[int] = 20_000,
     max_validation_documents: Optional[int] = 2_000,
+    streaming: bool = False,
 ) -> Tuple[DataLoader, Optional[DataLoader], "Tokenizer"]:
     """Create train/validation loaders for a preset HF text dataset.
 
@@ -326,7 +358,7 @@ def create_hf_text_dataloaders(
     experiments do not accidentally tokenize an entire web-scale corpus.
     """
     preset = resolve_hf_text_preset(preset_name)
-    splits = load_hf_text_splits(preset_name, streaming=False)
+    splits = load_hf_text_splits(preset_name, streaming=streaming)
 
     train_split = splits[preset.train_split]
     val_split = splits[preset.validation_split] if preset.validation_split else None
@@ -401,6 +433,7 @@ def create_text_dataloaders(
         max_tokenizer_documents=cfg.max_tokenizer_documents,
         max_train_documents=cfg.max_train_documents,
         max_validation_documents=cfg.max_validation_documents,
+        streaming=cfg.streaming,
     )
 
 

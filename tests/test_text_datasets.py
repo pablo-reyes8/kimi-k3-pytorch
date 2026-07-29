@@ -25,6 +25,9 @@ def test_presets_include_expected_research_corpora_and_unknown_rejected():
         "imdb",
         "minipile",
         "fineweb_edu_10bt_mincols",
+        "fineweb_10bt",
+        "fineweb_100bt",
+        "fineweb_350bt",
     }.issubset(presets)
     assert resolve_hf_text_preset("wikitext2").dataset_name == "Salesforce/wikitext"
     with pytest.raises(KeyError, match="Available"):
@@ -128,6 +131,7 @@ def test_create_text_dataloaders_forwards_every_configuration_field(monkeypatch)
         max_tokenizer_documents=10,
         max_train_documents=20,
         max_validation_documents=5,
+        streaming=True,
     )
     assert create_text_dataloaders(config, use_mtp=True) == (
         "train",
@@ -145,4 +149,45 @@ def test_create_text_dataloaders_forwards_every_configuration_field(monkeypatch)
         "max_tokenizer_documents": 10,
         "max_train_documents": 20,
         "max_validation_documents": 5,
+        "streaming": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "name,subset",
+    [
+        ("fineweb_10bt", "sample-10BT"),
+        ("fineweb_100bt", "sample-100BT"),
+        ("fineweb_350bt", "sample-350BT"),
+    ],
+)
+def test_fineweb_scale_presets_use_streamable_official_configs(
+    name, subset
+):
+    preset = resolve_hf_text_preset(name)
+    assert preset.dataset_name == "HuggingFaceFW/fineweb"
+    assert preset.subset == subset
+    assert preset.validation_split is None
+
+
+def test_hf_split_loader_forwards_subset_and_streaming(monkeypatch):
+    calls = {}
+
+    def fake_load_dataset(dataset_name, subset, *, streaming):
+        calls.update(
+            dataset_name=dataset_name,
+            subset=subset,
+            streaming=streaming,
+        )
+        return {"train": []}
+
+    monkeypatch.setattr(module, "load_dataset", fake_load_dataset)
+    result = module.load_hf_text_splits(
+        "fineweb_100bt", streaming=True
+    )
+    assert result == {"train": []}
+    assert calls == {
+        "dataset_name": "HuggingFaceFW/fineweb",
+        "subset": "sample-100BT",
+        "streaming": True,
     }

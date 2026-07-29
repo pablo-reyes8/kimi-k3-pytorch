@@ -172,14 +172,14 @@ config/kimi_full_pipeline/<profile>/
 └── training.yaml
 ```
 
-| Profile | Intended target | Maximum context | Notes |
-|---|---:|---:|---|
-| `cpu_smoke` | CPU | 32 | Download-free syntax and integration smoke |
-| `low_gpu` | T4 / about 15 GB | 512 | FP16, AdamW, text-only |
-| `gpu_24gb` | 24 GB GPU | 1,024 | BF16, per-head Muon/AdamW |
-| `gpu_48gb` | 48 GB GPU | 8,192 | Multimodal model, EMA and PCC |
-| `gpu_80gb` | 80 GB GPU | 8,192 | Larger MoE/vision research profile |
-| `canonical` | Distributed metadata | 8,192 | Full topology; validation only with the current orchestrator |
+| Profile | Intended target | Data source | Maximum context |
+|---|---:|---|---:|
+| `cpu_smoke` | CPU | Synthetic retrieval | 32 |
+| `low_gpu` | T4 / about 15 GB | WikiText-2 | 512 |
+| `gpu_24gb` | 24 GB GPU | FineWeb 10BT sample | 1,024 training / 2,048 data |
+| `gpu_48gb` | 48 GB GPU | FineWeb 100BT sample | 8,192 |
+| `gpu_80gb` | 80 GB GPU | FineWeb 350BT sample | 8,192 |
+| `canonical` | Distributed metadata | FineWeb 350BT sample | 8,192 |
 
 GPU memory depends on backend, PyTorch/CUDA versions, modality, allocator
 state and diagnostics. These are starting points, not universal guarantees.
@@ -206,10 +206,19 @@ context-aware loader factory used by PCC.
 | Family | Presets |
 |---|---|
 | Local synthetic | Deterministic long-context key/value retrieval |
-| Hugging Face text | WikiText-2, TinyStories, AG News, IMDB, MiniPile, FineWeb-Edu |
+| Compact Hugging Face text | WikiText-2, TinyStories, AG News, IMDB, MiniPile |
+| Educational web | FineWeb-Edu 10BT-mincols |
+| Progressive LLM scale | FineWeb `sample-10BT`, `sample-100BT`, `sample-350BT` |
 
 Hugging Face profiles can cap tokenizer, train and validation documents and
-cache a byte-level BPE tokenizer. Unit tests never download datasets.
+cache a byte-level BPE tokenizer. The three FineWeb profiles enable streaming
+and document caps by default so selecting one does not eagerly download the
+27.6 GB, 277.4 GB or roughly 388 GB remote source. Unit tests never download
+datasets.
+
+Standalone YAMLs for these sources live under [`config/data/`](config/data/).
+Removing the document caps is an explicit large-scale operation and should
+only be done with a deliberate storage and preprocessing plan.
 
 Build a configured data bundle:
 
@@ -431,8 +440,23 @@ caches and speculative MTP decoding are also outside the current scope.
 
 ## Citation and license
 
-GitHub exposes citation metadata from [`CITATION.cff`](CITATION.cff). A minimal
-BibTeX entry is:
+GitHub exposes citation metadata from [`CITATION.cff`](CITATION.cff). Please
+cite the original Kimi K3 technical report first:
+
+```bibtex
+@techreport{kimi_team_kimi_k3_2026,
+  author        = {{Kimi Team}},
+  title         = {Kimi K3: Open Frontier Intelligence},
+  year          = {2026},
+  eprint        = {2607.24653},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  doi           = {10.48550/arXiv.2607.24653},
+  url           = {https://arxiv.org/abs/2607.24653}
+}
+```
+
+If this implementation itself was useful, cite the software as well:
 
 ```bibtex
 @software{reyes_kimi_k3_mini_2026,

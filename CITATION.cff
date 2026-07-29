@@ -20,3 +20,11 @@ abstract: >-
   A research-oriented, reduced-scale pure-PyTorch implementation of the
   principal Kimi K3 architectural, training and native-cache inference
   mechanisms.
+preferred-citation:
+  type: report
+  title: "Kimi K3: Open Frontier Intelligence"
+  authors:
+    - name: "Kimi Team"
+  year: 2026
+  doi: "10.48550/arXiv.2607.24653"
+  url: "https://arxiv.org/abs/2607.24653"

@@ -1,11 +1,13 @@
+# Source-scale preset. The remote sample is roughly 388 GB / 350B GPT-2
+# tokens. Never set streaming=false for routine experiments.
 data:
-  name: fineweb_350bt_gpu_80gb
+  name: fineweb_350bt_streaming
   kind: hf_text
   dataset:
     preset_name: fineweb_350bt
     block_size: 8192
-    tokenizer_path: data/cache/tokenizers/fineweb_350bt_64000.json
-    vocab_size: 64000
+    tokenizer_path: data/cache/tokenizers/fineweb_350bt_128000.json
+    vocab_size: 128000
     min_frequency: 2
     max_tokenizer_documents: 200000
     max_train_documents: 500000

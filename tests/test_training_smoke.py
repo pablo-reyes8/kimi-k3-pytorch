@@ -4,7 +4,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from conftest import tiny_model
+from tests.helpers import tiny_model
 from data import SyntheticRetrievalConfig, create_synthetic_retrieval_dataloaders
 from src import BaselineCausalLM, BaselineCausalLMConfig, CausalLMOutput
 from training import build_adamw_optimizer, eval_one_epoch, train_one_epoch

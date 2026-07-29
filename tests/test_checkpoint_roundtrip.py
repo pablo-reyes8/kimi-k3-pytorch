@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-from conftest import tiny_model
+from tests.helpers import tiny_model
 from training import build_adamw_optimizer
 from training.checkpoints import load_checkpoint, save_checkpoint
 from training.scheduler import WarmupCosineLR

@@ -30,6 +30,10 @@ PROFILES = (
     "relative",
     [
         "config/data/synthetic_retrieval.yaml",
+        "config/data/wikitext2.yaml",
+        "config/data/fineweb_10bt_streaming.yaml",
+        "config/data/fineweb_100bt_streaming.yaml",
+        "config/data/fineweb_350bt_streaming.yaml",
         *[
             f"config/kimi_full_pipeline/{name}/data.yaml"
             for name in PROFILES
@@ -40,6 +44,39 @@ def test_public_data_profiles_parse_without_building_or_downloading(relative):
     config = load_data_config(ROOT / relative)
     assert config.max_seq_len > 0
     assert config.loader.batch_size > 0
+
+
+@pytest.mark.parametrize(
+    "relative,preset",
+    [
+        ("config/data/fineweb_10bt_streaming.yaml", "fineweb_10bt"),
+        ("config/data/fineweb_100bt_streaming.yaml", "fineweb_100bt"),
+        ("config/data/fineweb_350bt_streaming.yaml", "fineweb_350bt"),
+    ],
+)
+def test_web_scale_data_yamls_require_streaming_and_document_caps(
+    relative, preset
+):
+    config = load_data_config(ROOT / relative)
+    assert config.dataset.preset_name == preset
+    assert config.dataset.streaming
+    assert config.dataset.max_tokenizer_documents is not None
+    assert config.dataset.max_train_documents is not None
+
+
+@pytest.mark.parametrize(
+    "profile_name,preset",
+    [
+        ("low_gpu", "wikitext2"),
+        ("gpu_24gb", "fineweb_10bt"),
+        ("gpu_48gb", "fineweb_100bt"),
+        ("gpu_80gb", "fineweb_350bt"),
+        ("canonical", "fineweb_350bt"),
+    ],
+)
+def test_profile_data_scale_increases_with_compute(profile_name, preset):
+    profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
+    assert load_data_config(profile.data).dataset.preset_name == preset
 
 
 @pytest.mark.parametrize("profile_name", PROFILES)

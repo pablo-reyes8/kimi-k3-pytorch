@@ -1,5 +1,7 @@
+# Source-scale preset. Streaming prevents an eager 27.6 GB corpus download;
+# max_* limits still control how much is materialized for a local run.
 data:
-  name: fineweb_10bt_gpu_24gb
+  name: fineweb_10bt_streaming
   kind: hf_text
   dataset:
     preset_name: fineweb_10bt

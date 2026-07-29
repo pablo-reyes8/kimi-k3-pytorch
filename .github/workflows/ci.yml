@@ -79,7 +79,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install -e ".[dev]"
-      - run: pytest tests/configuration
+      - run: python -m pytest tests/configuration
       - name: Validate low-GPU and canonical profiles without allocation
         run: |
           python -m scripts.train_kimi \
@@ -102,7 +102,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install -e ".[dev]"
-      - run: pytest tests/inference
+      - run: python -m pytest tests/inference
 
   full-cpu-suite:
     name: Full CPU suite
@@ -122,7 +122,7 @@ jobs:
           python -m scripts.train_kimi \
             --profile config/kimi_full_pipeline/cpu_smoke \
             --validate-only
-      - run: pytest --durations=20
+      - run: python -m pytest --durations=20
 
   docker:
     name: Container smoke
@@ -137,4 +137,4 @@ jobs:
       - name: Run focused tests in the image
         run: |
           docker run --rm kimi-k3-mini:test \
-            pytest tests/configuration tests/inference
+            python -m pytest tests/configuration tests/inference

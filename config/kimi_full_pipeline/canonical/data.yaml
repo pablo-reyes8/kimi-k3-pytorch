@@ -1,16 +1,17 @@
 # Standard text corpus contract for the canonical architecture metadata.
 data:
-  name: fineweb_edu_8192_canonical
+  name: fineweb_350bt_canonical
   kind: hf_text
   dataset:
-    preset_name: fineweb_edu_10bt_mincols
+    preset_name: fineweb_350bt
     block_size: 8192
-    tokenizer_path: data/cache/tokenizers/fineweb_edu_64000.json
-    vocab_size: 64000
+    tokenizer_path: data/cache/tokenizers/fineweb_350bt_128000.json
+    vocab_size: 128000
     min_frequency: 2
     max_tokenizer_documents: 200000
-    max_train_documents: 100000
+    max_train_documents: 500000
     max_validation_documents: null
+    streaming: true
   loader:
     batch_size: 1
     validation_batch_size: 1

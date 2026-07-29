@@ -18,7 +18,7 @@ services:
     build:
       context: .
       target: test
-    command: [pytest, tests/configuration, tests/inference]
+    command: [python, -m, pytest, tests/configuration, tests/inference]
 
   inference:
     profiles: [inference]

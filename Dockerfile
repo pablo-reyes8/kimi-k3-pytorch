@@ -57,4 +57,4 @@ USER root
 RUN python -m pip install "pytest>=8"
 COPY --chown=kimi:kimi tests ./tests
 USER kimi
-CMD ["pytest", "tests/configuration", "tests/inference"]
+CMD ["python", "-m", "pytest", "tests/configuration", "tests/inference"]

@@ -14,14 +14,14 @@ experiment setting.
 
 ## Recommended profile sets
 
-| Directory | Target |
-|---|---|
-| `cpu_smoke/` | CPU syntax/smoke |
-| `low_gpu/` | NVIDIA T4, about 15 GB usable |
-| `gpu_24gb/` | 24 GB research GPU |
-| `gpu_48gb/` | 48 GB GPU + PCC |
-| `gpu_80gb/` | 80 GB GPU + PCC |
-| `canonical/` | Full architecture/training metadata |
+| Directory | Target | Default data |
+|---|---|---|
+| `cpu_smoke/` | CPU syntax/smoke | Synthetic retrieval |
+| `low_gpu/` | NVIDIA T4, about 15 GB usable | WikiText-2 |
+| `gpu_24gb/` | 24 GB research GPU | FineWeb 10BT streaming |
+| `gpu_48gb/` | 48 GB GPU + PCC | FineWeb 100BT streaming |
+| `gpu_80gb/` | 80 GB GPU + PCC | FineWeb 350BT streaming |
+| `canonical/` | Full architecture/training metadata | FineWeb 350BT streaming |
 
 The GPU profiles are conservative starting points, not universal memory
 guarantees. Available memory also depends on PyTorch/CUDA versions, allocator
@@ -44,3 +44,6 @@ directories. They are not complete pipeline profiles. See
 `kimi_full_pipeline/README.md` for the new standard.
 
 Generation-time greedy and sampling profiles live under `config/inference/`.
+Standalone WikiText-2 and progressively scaled FineWeb data YAMLs live under
+`config/data/`; the FineWeb variants always default to streaming plus explicit
+document caps.
