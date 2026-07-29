@@ -1,0 +1,23 @@
+data:
+  name: wikitext2_t4_1024
+  kind: hf_text
+  dataset:
+    preset_name: wikitext2
+    block_size: 1024
+    tokenizer_path: data/cache/tokenizers/wikitext2_16000.json
+    vocab_size: 16000
+    min_frequency: 2
+    max_tokenizer_documents: null
+    max_train_documents: null
+    max_validation_documents: null
+    streaming: false
+  loader:
+    batch_size: 1
+    validation_batch_size: 1
+    num_workers: 2
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: false
+    seed: 42

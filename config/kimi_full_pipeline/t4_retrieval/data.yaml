@@ -1,0 +1,24 @@
+data:
+  name: synthetic_retrieval_t4_2048
+  kind: synthetic_retrieval
+  dataset:
+    num_train_examples: 100000
+    num_val_examples: 5000
+    block_size: 2048
+    min_filler_tokens: 768
+    max_filler_tokens: 1800
+    num_keys_per_example: 16
+    vocab_filler_size: 1024
+    num_key_types: 256
+    num_value_types: 512
+    seed: 42
+  loader:
+    batch_size: 1
+    validation_batch_size: 1
+    num_workers: 4
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: true
+    seed: 42

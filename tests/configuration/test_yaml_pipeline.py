@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 import importlib
+import json
 
 import pytest
 
@@ -19,6 +20,8 @@ PROFILE_ROOT = ROOT / "config/kimi_full_pipeline"
 PROFILES = (
     "cpu_smoke",
     "low_gpu",
+    "t4_retrieval",
+    "t4_wikitext",
     "gpu_24gb",
     "gpu_48gb",
     "gpu_80gb",
@@ -68,6 +71,8 @@ def test_web_scale_data_yamls_require_streaming_and_document_caps(
     "profile_name,preset",
     [
         ("low_gpu", "wikitext2"),
+        ("t4_retrieval", None),
+        ("t4_wikitext", "wikitext2"),
         ("gpu_24gb", "fineweb_10bt"),
         ("gpu_48gb", "fineweb_100bt"),
         ("gpu_80gb", "fineweb_350bt"),
@@ -76,7 +81,68 @@ def test_web_scale_data_yamls_require_streaming_and_document_caps(
 )
 def test_profile_data_scale_increases_with_compute(profile_name, preset):
     profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
-    assert load_data_config(profile.data).dataset.preset_name == preset
+    data = load_data_config(profile.data)
+    if preset is None:
+        assert data.kind == "synthetic_retrieval"
+    else:
+        assert data.dataset.preset_name == preset
+
+
+@pytest.mark.parametrize(
+    "profile_name,d_model,num_groups,max_seq_len",
+    [
+        ("t4_retrieval", 704, 3, 2048),
+        ("t4_wikitext", 640, 3, 1024),
+    ],
+)
+def test_t4_profiles_expand_the_conservative_recipe_without_claiming_24gb(
+    profile_name, d_model, num_groups, max_seq_len
+):
+    profile = resolve_kimi_pipeline_profile(PROFILE_ROOT / profile_name)
+    model = load_model_config(profile.model)
+    training = load_training_config(profile.training)
+    conservative = load_model_config(PROFILE_ROOT / "low_gpu/model.yaml")
+
+    assert model.d_model == d_model > conservative.d_model
+    assert model.backbone.num_pattern_repeats == num_groups
+    assert training.training.max_seq_len == max_seq_len
+    assert training.training.precision == "fp16"
+    assert training.runtime.use_ema is False
+    assert training.optimizer.kind == "per_head_muon_adamw"
+
+
+@pytest.mark.parametrize(
+    "notebook_name",
+    [
+        "train_kimi_k3_from_yaml.ipynb",
+        "inference_kimi_k3_from_checkpoint.ipynb",
+    ],
+)
+def test_public_notebooks_are_english_unexecuted_and_show_profile_switches(
+    notebook_name,
+):
+    notebook = json.loads(
+        (ROOT / "notebooks" / notebook_name).read_text(encoding="utf-8")
+    )
+    source = "\n".join(
+        "".join(cell.get("source", [])) for cell in notebook["cells"]
+    )
+    lowered = source.lower()
+
+    assert source.isascii()
+    assert not {
+        "entrenamiento",
+        "inferencia",
+        "generacion",
+        "funcion maestra",
+        "cambie unicamente",
+    } & set(lowered.split())
+    assert "# PROFILE_NAME = 'gpu_48gb'" in source
+    assert "# PROFILE_NAME = 'gpu_80gb'" in source
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            assert cell.get("execution_count") is None
+            assert cell.get("outputs", []) == []
 
 
 @pytest.mark.parametrize("profile_name", PROFILES)

@@ -39,7 +39,7 @@ Validate a complete T4 pipeline without running anything:
 
 ```bash
 python -m scripts.train_kimi \
-  --profile config/kimi_full_pipeline/low_gpu \
+  --profile config/kimi_full_pipeline/t4_retrieval \
   --validate-only
 ```
 
@@ -49,7 +49,7 @@ Inference:
 
 ```bash
 python -m scripts.infer_kimi \
-  --profile config/kimi_full_pipeline/low_gpu \
-  --checkpoint checkpoints/t4_15gb/kimi_k3_t4_15gb_epoch_0002.pt \
+  --profile config/kimi_full_pipeline/t4_wikitext \
+  --checkpoint checkpoints/t4_wikitext_213m/kimi_k3_t4_wikitext_213m_epoch_0002.pt \
   --prompt "Once upon a time"
 ```
