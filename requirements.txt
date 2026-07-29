@@ -1,5 +1,6 @@
 torch>=2.2
 numpy>=1.24
+pyyaml>=6
 
 # Optional dataset support:
 # datasets>=2.18

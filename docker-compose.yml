@@ -1,0 +1,52 @@
+name: kimi-k3-mini
+
+services:
+  validate:
+    build:
+      context: .
+      target: runtime
+    command:
+      - python
+      - -m
+      - scripts.train_kimi
+      - --profile
+      - config/kimi_full_pipeline/cpu_smoke
+      - --validate-only
+
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    command: [pytest, tests/configuration, tests/inference]
+
+  inference:
+    profiles: [inference]
+    build:
+      context: .
+      target: runtime
+    command:
+      - python
+      - -m
+      - scripts.infer_kimi
+      - --profile
+      - config/kimi_full_pipeline/low_gpu
+      - --checkpoint
+      - ${KIMI_CHECKPOINT:-checkpoints/model.pt}
+      - --prompt
+      - ${KIMI_PROMPT:-Once upon a time}
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+      - ./data/cache:/app/data/cache:ro
+
+  shell:
+    profiles: [dev]
+    build:
+      context: .
+      target: test
+    entrypoint: [bash]
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/workspace
+    working_dir: /workspace

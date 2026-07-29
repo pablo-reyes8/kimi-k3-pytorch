@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a scoped architecture, training or tooling improvement.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Which research or engineering problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the public API, YAML or module boundary you suggest.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation strategy
+      description: Which CPU-safe invariants and tests should demonstrate correctness?
+    validations:
+      required: true

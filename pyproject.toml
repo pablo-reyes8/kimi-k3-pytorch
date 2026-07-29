@@ -6,8 +6,42 @@ build-backend = "setuptools.build_meta"
 name = "kimi-k3-mini"
 version = "0.0.1"
 description = "Research-oriented pure-PyTorch implementation of Kimi-K3 architectural mechanisms"
+readme = "README.md"
 requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Pablo Reyes"},
+]
+keywords = [
+    "deep-learning",
+    "kimi-k3",
+    "language-models",
+    "mixture-of-experts",
+    "pytorch",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = ["torch>=2.2", "numpy>=1.24", "pyyaml>=6"]
+
+[project.urls]
+Homepage = "https://github.com/pablo-reyes8/kimi-k3"
+Documentation = "https://github.com/pablo-reyes8/kimi-k3/tree/main/docs"
+Issues = "https://github.com/pablo-reyes8/kimi-k3/issues"
+Repository = "https://github.com/pablo-reyes8/kimi-k3"
+
+[project.scripts]
+kimi-train = "scripts.train_kimi:main"
+kimi-infer = "scripts.infer_kimi:main"
+kimi-validate-data = "scripts.validate_data_config:main"
+kimi-validate-model = "scripts.validate_model_config:main"
 
 [project.optional-dependencies]
 data = ["datasets>=2.18", "tokenizers>=0.15"]
@@ -21,4 +55,11 @@ markers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["src*", "data*", "training*", "inference*", "configuration*"]
+include = [
+    "src*",
+    "data*",
+    "training*",
+    "inference*",
+    "configuration*",
+    "scripts*",
+]
