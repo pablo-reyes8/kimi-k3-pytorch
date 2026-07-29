@@ -2,7 +2,7 @@
   <img src="assets/header_image.png" width="1000"/>
 </p>
 
-# Kimi-K3 Mini
+# Kimi K3
 
 ### From 213M single-T4 targets to the canonical Kimi K3 topology—in pure PyTorch
 
