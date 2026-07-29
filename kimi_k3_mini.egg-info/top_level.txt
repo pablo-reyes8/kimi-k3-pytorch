@@ -1,0 +1,6 @@
+configuration
+data
+inference
+scripts
+src
+training

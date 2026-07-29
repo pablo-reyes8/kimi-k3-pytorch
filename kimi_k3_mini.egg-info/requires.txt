@@ -1,0 +1,10 @@
+torch>=2.2
+numpy>=1.24
+pyyaml>=6
+
+[data]
+datasets>=2.18
+tokenizers>=0.15
+
+[dev]
+pytest>=8
