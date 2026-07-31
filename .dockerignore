@@ -13,7 +13,6 @@ outputs/*
 !outputs/.gitkeep
 data/cache
 paper
-notebooks
 benchmarks
 docs
 proyect_structure

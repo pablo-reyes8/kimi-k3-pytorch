@@ -56,5 +56,8 @@ FROM runtime AS test
 USER root
 RUN python -m pip install "pytest>=8"
 COPY --chown=kimi:kimi tests ./tests
+COPY --chown=kimi:kimi notebooks ./notebooks
+RUN mkdir -p /app/.pytest_cache \
+    && chown -R kimi:kimi /app/.pytest_cache
 USER kimi
 CMD ["python", "-m", "pytest", "tests/configuration", "tests/inference"]
