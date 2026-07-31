@@ -10,8 +10,13 @@ from data import load_tokenizer_from_data_yaml
 from inference import (
     ModelLoadConfig,
     inference_autoregressive,
-    load_generation_config,
+    load_inference_yaml_config,
     load_kimi_checkpoint,
+)
+from training.distributed import (
+    build_device_mesh,
+    initialize_distributed,
+    parallelize_kimi_model,
 )
 
 
@@ -66,7 +71,8 @@ def main(argv=None) -> int:
                 "pass --profile or both --data-config and --model-config"
             )
         data_path, model_path = args.data_config, args.model_config
-    generation = load_generation_config(args.inference_config)
+    inference_yaml = load_inference_yaml_config(args.inference_config)
+    generation = inference_yaml.generation
     overrides = {
         "max_new_tokens": args.max_new_tokens,
         "temperature": args.temperature,
@@ -89,35 +95,51 @@ def main(argv=None) -> int:
     elif args.greedy:
         generation = replace(generation, do_sample=False)
 
-    tokenizer = load_tokenizer_from_data_yaml(data_path)
-    loaded = load_kimi_checkpoint(
-        model_path,
-        args.checkpoint,
-        tokenizer=tokenizer,
-        load_config=ModelLoadConfig(
-            device=generation.device,
-            precision=args.precision,
-        ),
-    )
-    output = inference_autoregressive(
-        loaded.model,
-        args.prompt,
-        tokenizer=tokenizer,
-        generation_config=generation,
-    )
-    print("\n" + "=" * 88)
-    print("Kimi K3 inference")
-    print("=" * 88)
-    print(f"Checkpoint : {loaded.checkpoint_path}")
-    print(
-        f"Prompt/generated tokens : "
-        f"{output.prompt_tokens}/{output.generated_tokens}"
-    )
-    print(f"Finish reason : {output.finish_reason}")
-    print(f"Decode tokens/s : {output.tokens_per_second:.2f}")
-    print("-" * 88)
-    print(output.completion_text)
-    print("=" * 88)
+    context = initialize_distributed(inference_yaml.distributed)
+    context = build_device_mesh(context, inference_yaml.distributed)
+    try:
+        tokenizer = load_tokenizer_from_data_yaml(data_path)
+        loaded = load_kimi_checkpoint(
+            model_path,
+            args.checkpoint,
+            tokenizer=tokenizer,
+            load_config=ModelLoadConfig(
+                device=(
+                    str(context.device)
+                    if inference_yaml.distributed.enabled
+                    else generation.device
+                ),
+                precision=args.precision,
+            ),
+        )
+        if inference_yaml.distributed.enabled:
+            parallelize_kimi_model(
+                loaded.model, inference_yaml.distributed, context
+            )
+        output = inference_autoregressive(
+            loaded.model,
+            args.prompt,
+            tokenizer=tokenizer,
+            generation_config=replace(
+                generation, device=str(context.device)
+            ),
+        )
+        if context.is_global_zero:
+            print("\n" + "=" * 88)
+            print("Kimi K3 inference")
+            print("=" * 88)
+            print(f"Checkpoint : {loaded.checkpoint_path}")
+            print(
+                f"Prompt/generated tokens : "
+                f"{output.prompt_tokens}/{output.generated_tokens}"
+            )
+            print(f"Finish reason : {output.finish_reason}")
+            print(f"Decode tokens/s : {output.tokens_per_second:.2f}")
+            print("-" * 88)
+            print(output.completion_text)
+            print("=" * 88)
+    finally:
+        context.close()
     return 0
 
 

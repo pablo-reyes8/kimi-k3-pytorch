@@ -13,6 +13,7 @@ from data.batch import normalize_lm_batch
 from .autocast import autocast_ctx, move_batch_to_device
 from .loss_accounting import (
     LossContribution,
+    combine_distributed_window_loss,
     combine_window_loss,
     extract_loss_contribution,
 )
@@ -20,6 +21,27 @@ from .model_call import call_model
 from .diagnostics.loss_metrics import compute_loss_metrics
 from .context_curriculum import truncate_batch_to_context
 from .state import TrainerState
+from .distributed import (
+    all_ranks_true,
+    clip_grad_norm,
+    distributed_grad_norm,
+    reduce_scalar_metrics,
+)
+
+
+def _distributed_counter(value: float, context) -> float:
+    if context is None or not context.initialized:
+        return float(value)
+    tensor = torch.tensor(
+        float(value), device=context.device, dtype=torch.float64
+    )
+    for group, size in (
+        (context.dp_group, context.dp_size),
+        (context.ep_group, context.ep_size),
+    ):
+        if size > 1:
+            torch.distributed.all_reduce(tensor, group=group)
+    return float(tensor.item())
 
 
 def _grad_norm(parameters) -> float | None:
@@ -65,6 +87,7 @@ def train_one_epoch(
     image_token_id: int | None = None,
     video_token_id: int | None = None,
     stop_on_context_transition: bool = True,
+    distributed_context=None,
 ) -> Dict[str, Any]:
     """Train a complete epoch while accumulating exact token loss sums.
 
@@ -129,10 +152,32 @@ def train_one_epoch(
         nonlocal transition_event
         nonlocal transition_pending, stop_requested
 
-        objective, window_stats = combine_window_loss(window)
-        if not math.isfinite(float(objective.detach().item())):
+        local_ntp_tokens = sum(item.ntp_normalizer for item in window)
+        local_mtp_tokens = sum(item.mtp_normalizer for item in window)
+        local_tokens = sum(item.batch_tokens for item in window)
+        objective, window_stats = combine_distributed_window_loss(
+            window, distributed_context
+        )
+        finite_objective = math.isfinite(float(objective.detach().item()))
+        if distributed_context is not None:
+            finite_objective = all_ranks_true(
+                finite_objective,
+                device=device,
+            )
+        if not finite_objective:
             discard_window()
             raise FloatingPointError("non-finite training loss")
+        global_samples = _distributed_counter(
+            window_samples, distributed_context
+        )
+        state.samples_seen += int(global_samples - window_samples)
+        state.tokens_seen += int(window_stats["tokens"] - local_tokens)
+        state.valid_ntp_tokens_seen += int(
+            window_stats["ntp_tokens"] - local_ntp_tokens
+        )
+        state.valid_mtp_tokens_seen += int(
+            window_stats["mtp_tokens"] - local_mtp_tokens
+        )
 
         backward_started = time.perf_counter()
         if scaler is None:
@@ -142,27 +187,48 @@ def train_one_epoch(
             scaler.unscale_(optimizer)
         backward_ms = (time.perf_counter() - backward_started) * 1000.0
 
-        pre_clip = _grad_norm(model.parameters())
-        if pre_clip is not None and not math.isfinite(pre_clip):
-            discard_window()
-            raise FloatingPointError("non-finite gradient norm")
-        if grad_clip is not None:
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(),
-                max_norm=float(grad_clip),
-                error_if_nonfinite=True,
+        pre_clip_tensor = distributed_grad_norm(
+            model, distributed_context
+        )
+        pre_clip = (
+            None
+            if pre_clip_tensor is None
+            else float(pre_clip_tensor.item())
+        )
+        gradients_finite = (
+            pre_clip is None or math.isfinite(pre_clip)
+        )
+        if distributed_context is not None:
+            gradients_finite = all_ranks_true(
+                gradients_finite, device=device
             )
-        post_clip = _grad_norm(model.parameters())
+        if gradients_finite and grad_clip is not None:
+            clip_grad_norm(
+                model,
+                float(grad_clip),
+                context=distributed_context,
+            )
+        post_clip_tensor = distributed_grad_norm(
+            model, distributed_context
+        )
+        post_clip = (
+            None
+            if post_clip_tensor is None
+            else float(post_clip_tensor.item())
+        )
         optimizer_metrics = (
             diagnostics.capture_before_optimizer_step()
             if diagnostics is not None
             else {}
         )
 
-        executed = True
+        executed = gradients_finite
         optimizer_report = None
         optimizer_started = time.perf_counter()
-        if scaler is None:
+        if not gradients_finite:
+            if scaler is not None:
+                scaler.update()
+        elif scaler is None:
             optimizer_report = optimizer.step()
             executed = bool(
                 getattr(optimizer_report, "executed", True)
@@ -176,6 +242,13 @@ def train_one_epoch(
                 executed = executed and bool(
                     getattr(optimizer_report, "executed", True)
                 )
+        if distributed_context is not None:
+            globally_executed = all_ranks_true(executed, device=device)
+            if executed != globally_executed:
+                raise RuntimeError(
+                    "optimizer execution diverged across distributed ranks"
+                )
+            executed = globally_executed
         optimizer_ms = (time.perf_counter() - optimizer_started) * 1000.0
 
         if executed:
@@ -269,7 +342,7 @@ def train_one_epoch(
             "train/backward_time_ms": backward_ms,
             "train/optimizer_time_ms": optimizer_ms,
             "train/samples_per_second": (
-                window_samples / max(step_time_ms / 1000.0, 1e-12)
+                global_samples / max(step_time_ms / 1000.0, 1e-12)
             ),
             "train/tokens_per_second": (
                 window_stats["tokens"] / max(step_time_ms / 1000.0, 1e-12)
@@ -340,6 +413,10 @@ def train_one_epoch(
                     "context/tokens_seen": float(state.tokens_seen),
                     "context/transition_count": 0.0,
                 }
+            )
+        if distributed_context is not None:
+            step_metrics = reduce_scalar_metrics(
+                step_metrics, context=distributed_context
             )
         if transition_pending:
             step_metrics.update(
@@ -501,14 +578,18 @@ def train_one_epoch(
             "tokens": 0.0,
         }
     else:
-        _, epoch_stats = combine_window_loss(all_contributions)
+        _, epoch_stats = combine_distributed_window_loss(
+            all_contributions, distributed_context
+        )
     elapsed = time.perf_counter() - started
     return {
         **epoch_stats,
         "num_batches": float(len(all_contributions)),
         "optimizer_steps": float(optimizer_steps),
         "skipped_optimizer_steps": float(skipped_steps),
-        "num_samples": float(num_samples),
+        "num_samples": _distributed_counter(
+            num_samples, distributed_context
+        ),
         "grad_norm_pre_clip": grad_norm_pre_total / max(grad_norm_count, 1),
         "grad_norm_post_clip": grad_norm_post_total / max(grad_norm_count, 1),
         "epoch_time_seconds": float(elapsed),

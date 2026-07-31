@@ -16,6 +16,10 @@
 : Validates all architecture dataclasses without allocating parameters.
   `--instantiate` is opt-in and still never performs a forward or training.
 
+`validate_distributed_config.py`
+: Validates DP×TP×EP sizes, Kimi head/vocabulary/expert divisibility and prints
+  the exact `torchrun` command. It never builds data or allocates model weights.
+
 `infer_kimi.py`
 : Restores a model YAML plus trained checkpoint and runs the native
   KDA/MLA-cache autoregressive master function. Sampling can come from
@@ -44,6 +48,17 @@ python -m scripts.train_kimi \
 ```
 
 Start it by removing `--validate-only`.
+
+Distributed validation and launch:
+
+```bash
+python -m scripts.validate_distributed_config \
+  --profile config/kimi_full_pipeline/distributed_ddp_2x_t4
+
+torchrun --standalone --nproc_per_node=2 \
+  -m scripts.train_kimi \
+  --profile config/kimi_full_pipeline/distributed_ddp_2x_t4
+```
 
 Inference:
 

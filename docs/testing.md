@@ -38,6 +38,7 @@ mathematical or behavioral test.
 | Synthetic retrieval | tokenizer, metadata consistency, exact label offsets, answer retention, deterministic indexing, split isolation, MTP offsets |
 | Text data | local tokenizer training/loading, exact causal blocks, preset/config forwarding; no network calls |
 | Training | AdamW/Muon grouping, Newton–Schulz behavior, scheduler equations, AMP, EMA, checkpoints/RNG, accumulation, eval, overfit |
+| Distributed | strict topology/env parsing, rank mapping, serializable samplers, token-exact DDP update parity, complete-head TP forward/backward/cache parity, no-drop EP output/gradient/global-QB parity, TP×EP smoke and atomic same-topology resume |
 | MoonViT visual | exact patch/attention/MLP equations, positional interpolation, masks, bias policy, RMSNorm, dynamic grids, pixel packing, projector, gradients, BF16, roundtrips, synthetic spatial overfit |
 | Hierarchical visual ablation | pooling equation/masks, stage grids, global-attention diagnostics, dynamic resolution, gradients, BF16 |
 | Swin visual ablation | exact window roundtrips, shifted-window masks, relative positions, patch-merging order, odd grids, gradients, BF16 |

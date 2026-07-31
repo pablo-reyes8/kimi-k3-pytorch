@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+import shutil
 from typing import Any, Callable
 
 import torch
@@ -30,7 +31,7 @@ from .diagnostics import (
     KimiTrainingPrinter,
 )
 from .eval_one_epoch import eval_one_epoch
-from .logger import JSONLLogger
+from .logger import JSONLLogger, MemoryLogger
 from .moe_control import MoEController
 from .optimizer import (
     KimiOptimizerConfig,
@@ -42,6 +43,18 @@ from .scheduler import build_warmup_cosine_scheduler
 from .seed import set_seed
 from .state import TrainerState
 from .train_one_epoch import train_one_epoch
+from .distributed import (
+    DistributedConfig,
+    broadcast_model_state,
+    build_device_mesh,
+    initialize_distributed,
+    load_distributed_checkpoint,
+    parallelize_kimi_model,
+    print_topology,
+    save_distributed_checkpoint,
+    unwrap_model,
+    wrap_data_parallel,
+)
 
 
 def _loader_batches(loader, maximum: int | None) -> int:
@@ -55,9 +68,12 @@ def _loader_batches(loader, maximum: int | None) -> int:
 
 
 def _prune_epoch_checkpoints(directory: Path, run_name: str, keep: int) -> None:
-    paths = sorted(directory.glob(f"{run_name}_epoch_*.pt"))
+    paths = sorted(directory.glob(f"{run_name}_epoch_*"))
     for path in paths[:-keep]:
-        path.unlink()
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
 
 
 def _merge_train_segments(segments: list[dict]) -> dict:
@@ -142,6 +158,8 @@ def train_kimiK3(
     id_to_text: Callable[[list[int]], str] | None = None,
     total_steps: int | None = None,
     verbose: bool = True,
+    distributed_config: DistributedConfig | None = None,
+    distributed_context=None,
 ) -> dict[str, Any]:
     """Train Kimi K3 through modular train/eval/checkpoint components.
 
@@ -151,6 +169,7 @@ def train_kimiK3(
     """
 
     training_config = training_config or TrainingConfig()
+    distributed_config = distributed_config or DistributedConfig()
     if loss_config is not None:
         from src.loss import KimiPretrainingLoss
 
@@ -196,8 +215,25 @@ def train_kimiK3(
     checkpoint_config = checkpoint_config or CheckpointConfig()
     prediction_config = prediction_config or PredictionConfig()
 
-    set_seed(training_config.seed, deterministic=training_config.deterministic)
-    device_obj = resolve_device(device)
+    owns_distributed_context = distributed_context is None
+    if distributed_context is None:
+        distributed_context = initialize_distributed(distributed_config)
+        distributed_context = build_device_mesh(
+            distributed_context, distributed_config
+        )
+    if distributed_context.world_size != distributed_config.logical_world_size:
+        raise RuntimeError("distributed context and configuration disagree")
+    rank_seed = (
+        training_config.seed
+        + distributed_context.dp_rank * distributed_context.ep_size
+        + distributed_context.ep_rank
+    )
+    set_seed(rank_seed, deterministic=training_config.deterministic)
+    device_obj = (
+        distributed_context.device
+        if distributed_config.enabled
+        else resolve_device(device)
+    )
     if training_config.precision == "fp16" and device_obj.type != "cuda":
         raise RuntimeError("FP16 training requires CUDA")
     amp_enabled = training_config.precision != "fp32"
@@ -207,6 +243,27 @@ def train_kimiK3(
         amp_dtype=training_config.precision,
     )
     model.to(device_obj)
+    distributed_report = None
+    if distributed_config.enabled:
+        broadcast_model_state(model, distributed_context)
+        distributed_report = parallelize_kimi_model(
+            model, distributed_config, distributed_context
+        )
+        model.to(device_obj)
+        if (
+            distributed_config.data_parallel.mode == "fsdp"
+            and (use_ema or ema is not None)
+        ):
+            raise ValueError(
+                "EMA with FSDP requires a sharded EMA and is unsupported"
+            )
+        model = wrap_data_parallel(
+            model,
+            distributed_config,
+            distributed_context,
+            training_precision=training_config.precision,
+        )
+    raw_model_config = getattr(unwrap_model(model), "config", None)
 
     if train_loader is not None and train_loader_factory is not None:
         raise ValueError(
@@ -217,7 +274,7 @@ def train_kimiK3(
             "pass curriculum or context_curriculum_config, not both"
         )
     if curriculum is None and context_curriculum_config.enabled:
-        model_config = getattr(model, "config", None)
+        model_config = raw_model_config
         configured_model_limit = getattr(
             model_config, "max_seq_len", training_config.max_seq_len
         )
@@ -309,12 +366,18 @@ def train_kimiK3(
         diagnostics_config,
         parameter_specs=parameter_registry.specs,
     )
-    printer = KimiTrainingPrinter() if verbose else None
+    log_rank = distributed_config.diagnostics.log_rank
+    is_log_rank = distributed_context.global_rank == log_rank
+    printer = KimiTrainingPrinter() if verbose and is_log_rank else None
     output_dir = Path(checkpoint_config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     owns_logger = logger is None
     if logger is None:
-        logger = JSONLLogger(output_dir / f"{checkpoint_config.run_name}.jsonl")
+        logger = (
+            JSONLLogger(output_dir / f"{checkpoint_config.run_name}.jsonl")
+            if is_log_rank
+            else MemoryLogger()
+        )
 
     history: dict[str, list] = {
         "train": [],
@@ -323,21 +386,42 @@ def train_kimiK3(
     }
     resume = checkpoint_config.resume_from
     if resume is not None:
-        resumed = load_checkpoint(
-            resume,
-            model,
-            optimizer=optimizer if checkpoint_config.save_optimizer else None,
-            scheduler=scheduler,
-            scaler=precision["scaler"],
-            ema=ema,
-            trainer_state=state,
-            curriculum=curriculum,
-            diagnostics=diagnostic_collector,
-            map_location="cpu",
-            strict=True,
-            restore_rng=checkpoint_config.save_rng_state,
-        )
-        history = resumed.get("history") or history
+        if distributed_config.enabled:
+            resumed = load_distributed_checkpoint(
+                resume,
+                model=model,
+                context=distributed_context,
+                optimizer=(
+                    optimizer if checkpoint_config.save_optimizer else None
+                ),
+                scheduler=scheduler,
+                scaler=precision["scaler"],
+                ema=ema,
+                trainer_state=state,
+                curriculum=curriculum,
+                diagnostics=diagnostic_collector,
+                sampler=None,
+                restore_rng=checkpoint_config.save_rng_state,
+            )
+            history = resumed.get("extra", {}).get("history") or history
+        else:
+            resumed = load_checkpoint(
+                resume,
+                model,
+                optimizer=(
+                    optimizer if checkpoint_config.save_optimizer else None
+                ),
+                scheduler=scheduler,
+                scaler=precision["scaler"],
+                ema=ema,
+                trainer_state=state,
+                curriculum=curriculum,
+                diagnostics=diagnostic_collector,
+                map_location="cpu",
+                strict=True,
+                restore_rng=checkpoint_config.save_rng_state,
+            )
+            history = resumed.get("history") or history
         model.to(device_obj)
         if curriculum is not None:
             if curriculum.state.tokens_seen != state.tokens_seen:
@@ -350,8 +434,34 @@ def train_kimiK3(
                     train_loader_factory,
                     curriculum.current_max_seq_len(),
                 )
+        if distributed_config.enabled:
+            sampler_state = resumed.get("sampler_state")
+            active_sampler = getattr(train_loader, "sampler", None)
+            if sampler_state is not None:
+                if not hasattr(active_sampler, "load_state_dict"):
+                    raise ValueError(
+                        "distributed checkpoint contains sampler state but "
+                        "the active loader has no stateful sampler"
+                    )
+                active_sampler.load_state_dict(sampler_state)
 
     if printer is not None:
+        if distributed_config.enabled:
+            print_topology(
+                distributed_context,
+                log_rank=log_rank,
+                per_rank_debug=(
+                    distributed_config.diagnostics.per_rank_debug
+                ),
+                wrapper_mode=distributed_config.data_parallel.mode,
+                checkpoint_format=distributed_config.checkpoint.format,
+                global_batch_size=(
+                    getattr(train_loader, "batch_size", 0)
+                    * distributed_context.dp_size
+                    * distributed_context.ep_size
+                    * training_config.gradient_accumulation_steps
+                ),
+            )
         printer.print_run_header(
             run_name=checkpoint_config.run_name,
             model=model,
@@ -367,6 +477,10 @@ def train_kimiK3(
     last_checkpoint = None
     try:
         for epoch in range(state.epoch, training_config.epochs):
+            epoch_sampler = getattr(train_loader, "sampler", None)
+            if hasattr(epoch_sampler, "set_epoch"):
+                epoch_sampler.set_epoch(epoch)
+
             def on_step(step_metrics):
                 alerts = step_metrics.pop("_alerts", ())
                 if (
@@ -408,15 +522,13 @@ def train_kimiK3(
                         else (
                             int(
                                 getattr(
-                                    getattr(
-                                        model, "config", None
-                                    ),
+                                    raw_model_config,
                                     "mtp",
                                     None,
                                 ).ignore_index
                             )
                             if getattr(
-                                getattr(model, "config", None),
+                                raw_model_config,
                                 "mtp",
                                 None,
                             )
@@ -425,15 +537,16 @@ def train_kimiK3(
                         )
                     ),
                     image_token_id=getattr(
-                        getattr(model, "config", None),
+                        raw_model_config,
                         "image_token_id",
                         None,
                     ),
                     video_token_id=getattr(
-                        getattr(model, "config", None),
+                        raw_model_config,
                         "video_token_id",
                         None,
                     ),
+                    distributed_context=distributed_context,
                     stop_on_context_transition=(
                         curriculum is not None
                         and curriculum.config.reset_dataloader_on_transition
@@ -457,6 +570,11 @@ def train_kimiK3(
                     train_loader_factory,
                     curriculum.current_max_seq_len(),
                 )
+                transitioned_sampler = getattr(
+                    train_loader, "sampler", None
+                )
+                if hasattr(transitioned_sampler, "set_epoch"):
+                    transitioned_sampler.set_epoch(epoch)
             train_stats = _merge_train_segments(train_segments)
             history["train"].append(train_stats)
 
@@ -476,6 +594,7 @@ def train_kimiK3(
                     use_mtp=training_config.use_mtp,
                     ema=ema,
                     use_ema=eval_use_ema,
+                    distributed_context=distributed_context,
                 )
                 history["validation"].append(eval_stats)
                 eval_loss = float(eval_stats["loss"])
@@ -508,7 +627,7 @@ def train_kimiK3(
                     )
                     prediction["epoch"] = epoch
                     history["predictions"].append(prediction)
-                    if verbose:
+                    if verbose and is_log_rank:
                         print_next_token_preview(
                             prediction,
                             title=f"Kimi K3 next-token preview | epoch={epoch}",
@@ -534,50 +653,94 @@ def train_kimiK3(
             if should_checkpoint:
                 moe_controller.assert_clean()
                 last_checkpoint = output_dir / (
-                    f"{checkpoint_config.run_name}_epoch_{epoch:04d}.pt"
+                    f"{checkpoint_config.run_name}_epoch_{epoch:04d}"
+                    + ("" if distributed_config.enabled else ".pt")
                 )
-                save_checkpoint(
-                    last_checkpoint,
-                    model,
-                    optimizer=(
-                        optimizer if checkpoint_config.save_optimizer else None
+                serialized_training_config = {
+                    "training": training_config.to_dict(),
+                    "loss": (
+                        None
+                        if loss_config is None
+                        else loss_config.to_dict()
                     ),
-                    scheduler=scheduler,
-                    scaler=precision["scaler"],
-                    ema=ema,
-                    trainer_state=state,
-                    curriculum=curriculum,
-                    epoch=epoch,
-                    global_step=state.optimizer_step,
-                    model_config=getattr(model, "config", None),
-                    training_config={
-                        "training": training_config.to_dict(),
-                        "loss": (
+                    "optimizer": optimizer_config.to_dict(),
+                    "kimi_optimizer": kimi_optimizer_config.to_dict(),
+                    "scheduler": scheduler_config.to_dict(),
+                    "diagnostics": diagnostics_config.to_dict(),
+                    "context_curriculum": (
+                        curriculum.config.to_dict()
+                        if curriculum is not None
+                        else context_curriculum_config.to_dict()
+                    ),
+                    "checkpoint": checkpoint_config.to_dict(),
+                    "distributed": distributed_config.to_dict(),
+                }
+                if distributed_config.enabled:
+                    save_distributed_checkpoint(
+                        last_checkpoint,
+                        model=model,
+                        context=distributed_context,
+                        step=state.optimizer_step,
+                        optimizer=(
+                            optimizer
+                            if checkpoint_config.save_optimizer
+                            else None
+                        ),
+                        scheduler=scheduler,
+                        scaler=precision["scaler"],
+                        ema=ema,
+                        trainer_state=state,
+                        curriculum=curriculum,
+                        diagnostics=diagnostic_collector,
+                        sampler=getattr(train_loader, "sampler", None),
+                        model_config=(
                             None
-                            if loss_config is None
-                            else loss_config.to_dict()
+                            if raw_model_config is None
+                            else raw_model_config.to_dict()
                         ),
-                        "optimizer": optimizer_config.to_dict(),
-                        "kimi_optimizer": kimi_optimizer_config.to_dict(),
-                        "scheduler": scheduler_config.to_dict(),
-                        "diagnostics": diagnostics_config.to_dict(),
-                        "context_curriculum": (
-                            curriculum.config.to_dict()
-                            if curriculum is not None
-                            else context_curriculum_config.to_dict()
+                        training_config=serialized_training_config,
+                        registry_fingerprint=parameter_registry.fingerprint,
+                        save_rng=(
+                            checkpoint_config.save_rng_state
+                            and distributed_config.checkpoint.save_rng_per_rank
                         ),
-                        "checkpoint": checkpoint_config.to_dict(),
-                    },
-                    history=history,
-                    metadata={"optimizer_type": type(optimizer).__name__},
-                    save_rng_state=checkpoint_config.save_rng_state,
-                    diagnostics=diagnostic_collector,
-                )
-                _prune_epoch_checkpoints(
-                    output_dir,
-                    checkpoint_config.run_name,
-                    checkpoint_config.keep_last_n,
-                )
+                        extra={
+                            "history": history,
+                            "optimizer_type": type(optimizer).__name__,
+                            "distributed_report": distributed_report,
+                        },
+                    )
+                else:
+                    save_checkpoint(
+                        last_checkpoint,
+                        model,
+                        optimizer=(
+                            optimizer
+                            if checkpoint_config.save_optimizer
+                            else None
+                        ),
+                        scheduler=scheduler,
+                        scaler=precision["scaler"],
+                        ema=ema,
+                        trainer_state=state,
+                        curriculum=curriculum,
+                        epoch=epoch,
+                        global_step=state.optimizer_step,
+                        model_config=raw_model_config,
+                        training_config=serialized_training_config,
+                        history=history,
+                        metadata={
+                            "optimizer_type": type(optimizer).__name__
+                        },
+                        save_rng_state=checkpoint_config.save_rng_state,
+                        diagnostics=diagnostic_collector,
+                    )
+                if is_log_rank:
+                    _prune_epoch_checkpoints(
+                        output_dir,
+                        checkpoint_config.run_name,
+                        checkpoint_config.keep_last_n,
+                    )
             if printer is not None:
                 printer.print_epoch_summary(
                     epoch=epoch,
@@ -589,6 +752,8 @@ def train_kimiK3(
     finally:
         if owns_logger:
             logger.close()
+        if owns_distributed_context:
+            distributed_context.close()
 
     return {
         "model": model,

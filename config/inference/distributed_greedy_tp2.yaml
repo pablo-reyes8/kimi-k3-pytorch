@@ -15,4 +15,15 @@ inference:
   return_cache: true
   max_total_tokens: null
 distributed:
-  enabled: false
+  enabled: true
+  backend: auto
+  data_parallel: {mode: none, size: 1}
+  tensor_parallel:
+    enabled: true
+    size: 2
+    shard_embeddings: true
+    shard_lm_head: true
+    shard_kda_heads: true
+    shard_mla_heads: true
+    mla_cache_layout: replicated
+  expert_parallel: {enabled: false, size: 1}

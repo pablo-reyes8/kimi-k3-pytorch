@@ -22,6 +22,9 @@ experiment setting.
 | `gpu_48gb/` | 48 GB GPU + PCC | FineWeb 100BT streaming |
 | `gpu_80gb/` | 80 GB GPU + PCC | FineWeb 350BT streaming |
 | `canonical/` | Full architecture/training metadata | FineWeb 350BT streaming |
+| `distributed_ddp_2x_t4/` | 2-rank DDP | Synthetic retrieval |
+| `distributed_tp_2x_24gb/` | 2-rank Kimi TP | FineWeb 10BT streaming |
+| `distributed_tp_ep_4x_24gb/` | 4-rank TP × EP | FineWeb 10BT streaming |
 
 The GPU profiles are conservative starting points, not universal memory
 guarantees. Available memory also depends on PyTorch/CUDA versions, allocator
@@ -37,7 +40,7 @@ path expected by the larger profiles.
 - Model YAML owns every architecture dimension and capability.
 - Training YAML owns precision, accumulation, MTP use, optimizer family,
   NTP/MTP loss settings, Muon/AdamW parameters, scheduler, diagnostics, PCC,
-  EMA, checkpoints and previews.
+  EMA, checkpoints, previews and the strict DP×TP×EP topology.
 
 Legacy component and reference fragments remain in their specialized config
 directories. They are not complete pipeline profiles. See

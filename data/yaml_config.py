@@ -17,6 +17,7 @@ from configuration.yaml_utils import (
     reject_unknown_keys,
 )
 from training.context_curriculum import ProgressiveContextCollator
+from training.distributed import DistributedContext, StatefulDistributedSampler
 
 from .synthetic_long_context_retrieval import (
     SimpleWordTokenizer,
@@ -199,6 +200,7 @@ def _rewrap_loader(
     max_seq_len: int,
     pad_token_id: int,
     ignore_index: int = -100,
+    distributed_context: DistributedContext | None = None,
 ) -> DataLoader:
     batch_size = loader.batch_size if train else loader.eval_batch_size
     generator = torch.Generator().manual_seed(loader.seed)
@@ -212,10 +214,36 @@ def _rewrap_loader(
         if loader.num_workers == 0 or loader.prefetch_factor is None
         else {"prefetch_factor": loader.prefetch_factor}
     )
+    sampler = None
+    if (
+        distributed_context is not None
+        and distributed_context.initialized
+        and (
+            distributed_context.dp_size * distributed_context.ep_size
+        ) > 1
+    ):
+        replicas = (
+            distributed_context.dp_size * distributed_context.ep_size
+        )
+        data_rank = (
+            distributed_context.dp_rank * distributed_context.ep_size
+            + distributed_context.ep_rank
+        )
+        sampler = StatefulDistributedSampler(
+            dataset,
+            num_replicas=replicas,
+            rank=data_rank,
+            shuffle=loader.shuffle_train if train else False,
+            seed=loader.seed,
+            drop_last=loader.drop_last if train else False,
+        )
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=loader.shuffle_train if train else False,
+        shuffle=(
+            loader.shuffle_train if train and sampler is None else False
+        ),
+        sampler=sampler,
         num_workers=loader.num_workers,
         pin_memory=loader.resolved_pin_memory,
         persistent_workers=loader.persistent_workers,
@@ -226,7 +254,11 @@ def _rewrap_loader(
     )
 
 
-def build_dataloaders_from_yaml(path: str | Path) -> DataBundle:
+def build_dataloaders_from_yaml(
+    path: str | Path,
+    *,
+    distributed_context: DistributedContext | None = None,
+) -> DataBundle:
     """Build loaders once and expose a PCC-compatible loader factory."""
     config = load_data_config(path)
     if config.kind == "synthetic_retrieval":
@@ -269,6 +301,7 @@ def build_dataloaders_from_yaml(path: str | Path) -> DataBundle:
             train=True,
             max_seq_len=max_seq_len,
             pad_token_id=int(pad_id),
+            distributed_context=distributed_context,
         )
 
     train_loader = make_train_loader(config.max_seq_len)
@@ -281,6 +314,7 @@ def build_dataloaders_from_yaml(path: str | Path) -> DataBundle:
             train=False,
             max_seq_len=config.max_seq_len,
             pad_token_id=int(pad_id),
+            distributed_context=distributed_context,
         )
     )
     return DataBundle(

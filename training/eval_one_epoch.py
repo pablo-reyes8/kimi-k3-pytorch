@@ -10,7 +10,11 @@ import torch
 from data.batch import normalize_lm_batch
 
 from .autocast import autocast_ctx, move_batch_to_device
-from .loss_accounting import combine_window_loss, extract_loss_contribution
+from .loss_accounting import (
+    combine_distributed_window_loss,
+    combine_window_loss,
+    extract_loss_contribution,
+)
 from .model_call import call_model
 
 
@@ -26,6 +30,7 @@ def eval_one_epoch(
     use_mtp: bool | None = None,
     ema=None,
     use_ema: bool = False,
+    distributed_context=None,
 ) -> Dict[str, float]:
     if max_batches is not None and max_batches < 0:
         raise ValueError("max_batches must be None or non-negative")
@@ -75,7 +80,22 @@ def eval_one_epoch(
             "used_ema": float(use_ema),
         }
 
-    _, stats = combine_window_loss(contributions)
+    _, stats = combine_distributed_window_loss(
+        contributions, distributed_context
+    )
+    if distributed_context is not None and distributed_context.initialized:
+        samples = torch.tensor(
+            float(num_samples),
+            device=distributed_context.device,
+            dtype=torch.float64,
+        )
+        for group, size in (
+            (distributed_context.dp_group, distributed_context.dp_size),
+            (distributed_context.ep_group, distributed_context.ep_size),
+        ):
+            if size > 1:
+                torch.distributed.all_reduce(samples, group=group)
+        num_samples = int(samples.item())
     ntp_perplexity = math.exp(min(stats["ntp_loss"], 50.0))
     return {
         **stats,

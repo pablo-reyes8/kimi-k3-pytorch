@@ -19,7 +19,7 @@ This is not just a Transformer renamed after Kimi. The repository delivers a fai
 > [!IMPORTANT]
 > This is an independent research implementation. It is not affiliated with
 > Moonshot AI, does not ship official or trained weights, and does not reproduce
-> the original distributed training system, data mixture or production kernels.
+> Moonshot's production PP/VP/CP/MoonEP system, data mixture or custom kernels.
 
 ## Contents
 
@@ -88,6 +88,33 @@ indicator, not measured throughput: attention, KDA recurrence, routing,
 MoonViT, MTP, sequence length and kernels add workload. The remaining `≥` row
 reports the text stack before the additional visual path. GPU labels are starting targets;
 peak memory must be measured on the actual PyTorch/CUDA stack.
+
+### Distributed launch profiles
+
+The same three-YAML control plane now describes the process topology. These
+profiles are executable PyTorch baselines, not production-system claims:
+
+| Profile | Processes | Composition | Starting hardware/data |
+|---|---:|---|---|
+| `distributed_ddp_2x_t4` | 2 | 2-way DDP | 2 × T4, synthetic retrieval |
+| `distributed_tp_2x_24gb` | 2 | 2-way complete-head TP | 2 × 24 GB, FineWeb 10BT |
+| `distributed_tp_ep_4x_24gb` | 4 | 2-way TP × 2-way EP | 4 × 24 GB, FineWeb 10BT |
+
+Validate topology, divisibility and the exact launch command without building
+data or allocating the model:
+
+```bash
+python -m scripts.validate_distributed_config \
+  --profile config/kimi_full_pipeline/distributed_tp_ep_4x_24gb
+```
+
+Launch the same validated profile:
+
+```bash
+torchrun --standalone --nproc_per_node=4 \
+  -m scripts.train_kimi \
+  --profile config/kimi_full_pipeline/distributed_tp_ep_4x_24gb
+```
 
 ### Two practical T4 starting points
 
@@ -172,6 +199,7 @@ before the data or model is built.
 | Training                | Train/eval epochs, AMP, accumulation, EMA, checkpoints, scheduler, previews and structured diagnostics           |
 | Kimi optimizers         | AdamW, Muon/AdamW hybrid, per-head QKV handling and QK-Clip                                                      |
 | Long-context curriculum | Optional Progressive Context Curriculum with resumable stage state                                               |
+| Distributed execution   | DDP, FSDP boundary, complete-head KDA/MLA TP, tied vocabulary shards, no-drop MoE EP and atomic rank checkpoints |
 | Inference               | Checkpoint restoration, greedy/sampling generation and native KDA/MLA cached decode                              |
 | Configuration           | Strict data/model/training YAMLs grouped into complete experiment profiles                                       |
 
@@ -333,6 +361,22 @@ python -m scripts.train_kimi \
 
 This may download/tokenize data and allocate the configured model.
 
+Distributed profiles use the same master function and are launched with
+`torchrun`; the YAML remains the source of truth:
+
+```bash
+torchrun --standalone --nproc_per_node=2 \
+  -m scripts.train_kimi \
+  --profile config/kimi_full_pipeline/distributed_ddp_2x_t4
+```
+
+The model is transformed in place: KDA and MLA own complete local heads,
+KDA recurrent/ShortConv caches follow those heads, MLA keeps the compressed
+latent cache replicated, tied vocabulary weights are sharded once, and routed
+experts use no-drop variable `all_to_all`. DDP/EP token losses and PCC counters
+are reduced by valid-token count. Pipeline and context parallel sizes are
+strictly reserved at `1` in this phase.
+
 ## Inference
 
 Inference restores the architecture from `model.yaml`, loads a training
@@ -386,6 +430,11 @@ python -m scripts.infer_kimi \
 Sampling supports greedy decoding, temperature, top-k, top-p, repetition
 penalty and deterministic seeds. See [`inference/README.md`](inference/README.md).
 
+Two-way cached inference can use
+`config/inference/distributed_greedy_tp2.yaml` under `torchrun`. It expects a
+consolidated trusted checkpoint; same-topology training checkpoints remain
+rank-sharded directories.
+
 > [!WARNING]
 > Only load checkpoints from trusted sources. PyTorch checkpoint
 > deserialization is not a safe boundary for arbitrary files.
@@ -401,6 +450,7 @@ make check             # configuration + inference contracts
 make test-config
 make test-inference
 make test-training
+make test-distributed
 make test              # complete CPU-safe suite
 ```
 
@@ -479,21 +529,25 @@ Recommended entry points:
 - [Training engine](docs/basic_training_phase_report.md)
 - [Optimizer and diagnostics](docs/training_phase_2_optimizer_diagnostics_report.md)
 - [Progressive Context Curriculum](docs/training_phase_3_progressive_context_curriculum_report.md)
+- [Distributed parallelism](docs/distributed_parallelism_phase_report.md)
+- [Distributed training guide](docs/distributed_training.md)
+- [Distributed inference and cache guide](docs/distributed_inference_and_cache.md)
 
 ## Project status
 
-The architecture, pretraining engine, YAML control plane and cached inference
-pipeline are implemented. The remaining public milestones are:
+The architecture, pretraining engine, YAML control plane, PyTorch-native
+DP/TP/EP baseline and cached inference pipeline are implemented. The remaining
+public milestones are:
 
 1. **Train a proof model — in progress.** Run and publish a small end-to-end
    checkpoint with reproducible curves and qualitative generations.
-2. **Add simplified parallelism.** Introduce educational data parallel and
-   model parallel execution without pretending to reproduce the production
-   distributed stack.
-3. **Integrate post-training.** SFT, RL/policy-optimization and multi-teacher
+2. **Integrate post-training.** SFT, RL/policy-optimization and multi-teacher
    distillation losses already exist under `src/loss/`; their datasets,
    rollout/teacher orchestration and checkpointed training pipeline remain to
    be connected.
+3. **Measure and tune distributed GPU profiles.** Publish real memory,
+   throughput and scaling measurements; PP, KDA context parallelism and
+   MoonEP-style production kernels remain explicitly out of scope.
 
 Production serving kernels, paged attention, continuous batching, quantized
 caches and speculative MTP decoding are also outside the current scope.

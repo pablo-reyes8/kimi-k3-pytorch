@@ -12,10 +12,12 @@ from configuration import resolve_kimi_pipeline_profile
 from data import build_dataloaders_from_yaml, load_data_config
 from src import build_model_from_yaml, load_model_config
 from training import (
+    initialize_distributed,
     load_training_config,
     train_kimi_from_yaml,
     validate_pipeline_compatibility,
 )
+from training.distributed import build_device_mesh
 
 
 def parser() -> argparse.ArgumentParser:
@@ -86,18 +88,34 @@ def main(argv=None) -> int:
             f"  optimizer={training_config.optimizer.kind} "
             f"precision={training_config.training.precision}"
         )
+        distributed = training_config.distributed
+        print(
+            f"  distributed={distributed.enabled} "
+            f"world_size={distributed.logical_world_size} "
+            f"DP/TP/EP={distributed.data_parallel.size}/"
+            f"{distributed.tensor_parallel.size}/"
+            f"{distributed.expert_parallel.size}"
+        )
         return 0
 
-    data = build_dataloaders_from_yaml(data_path)
-    model = build_model_from_yaml(
-        model_path,
-        data_bundle=data,
-    )
-    train_kimi_from_yaml(
-        training_path,
-        model=model,
-        data=data,
-    )
+    context = initialize_distributed(training_config.distributed)
+    context = build_device_mesh(context, training_config.distributed)
+    try:
+        data = build_dataloaders_from_yaml(
+            data_path, distributed_context=context
+        )
+        model = build_model_from_yaml(
+            model_path,
+            data_bundle=data,
+        )
+        train_kimi_from_yaml(
+            training_path,
+            model=model,
+            data=data,
+            distributed_context=context,
+        )
+    finally:
+        context.close()
     return 0
 
 

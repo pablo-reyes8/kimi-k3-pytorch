@@ -28,11 +28,16 @@ from .tokenization import (
     encode_prompt,
     tokenizer_token_id,
 )
-from .yaml_config import load_generation_config
+from .yaml_config import (
+    InferenceYamlConfig,
+    load_generation_config,
+    load_inference_yaml_config,
+)
 
 __all__ = [
     "GenerationConfig",
     "GenerationOutput",
+    "InferenceYamlConfig",
     "LoadedKimiCheckpoint",
     "ModelLoadConfig",
     "apply_repetition_penalty",
@@ -47,6 +52,7 @@ __all__ = [
     "inference_autoregressive",
     "inference_autoregresive",
     "load_generation_config",
+    "load_inference_yaml_config",
     "load_kimi_checkpoint",
     "prefill_prompt",
     "sample_next_token",

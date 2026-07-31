@@ -26,6 +26,8 @@ from .context_curriculum import (
     ContextStage,
 )
 from .diagnostics import DiagnosticsConfig
+from .distributed import DistributedConfig, distributed_config_from_dict
+from .distributed.parallelize import validate_distributed_model_config
 from .optimizer import KimiOptimizerConfig
 
 
@@ -60,6 +62,7 @@ class TrainingYamlConfig:
     context_curriculum: ContextCurriculumConfig
     checkpoint: CheckpointConfig
     prediction: PredictionConfig
+    distributed: DistributedConfig
     source_path: Path
 
 
@@ -112,6 +115,10 @@ def load_training_config(path: str | Path) -> TrainingYamlConfig:
     prediction = _section(
         root, "prediction", PredictionConfig, required=False
     )
+    distributed_values = expect_mapping(
+        root, "distributed", path="root", required=False
+    )
+    distributed = distributed_config_from_dict(distributed_values)
     reject_unknown_keys(root, path="root")
     return TrainingYamlConfig(
         runtime=runtime,
@@ -123,6 +130,7 @@ def load_training_config(path: str | Path) -> TrainingYamlConfig:
         context_curriculum=context_curriculum,
         checkpoint=checkpoint,
         prediction=prediction,
+        distributed=distributed,
         source_path=source,
     )
 
@@ -154,6 +162,15 @@ def validate_pipeline_compatibility(
             raise ConfigError(
                 "final context stage exceeds data block_size"
             )
+    if (
+        config.distributed.data_parallel.mode == "fsdp"
+        and config.runtime.use_ema
+    ):
+        raise ConfigError(
+            "runtime.use_ema=true is unsupported with FSDP; "
+            "a sharded EMA is not implemented"
+        )
+    validate_distributed_model_config(config.distributed, model_config)
 
 
 def train_kimi_from_yaml(
@@ -162,6 +179,7 @@ def train_kimi_from_yaml(
     model,
     data,
     logger=None,
+    distributed_context=None,
 ) -> dict[str, Any]:
     """Call only the master trainer using one validated training YAML."""
     config = load_training_config(path)
@@ -200,6 +218,8 @@ def train_kimi_from_yaml(
         tokenizer=data.tokenizer,
         total_steps=config.runtime.total_steps,
         verbose=config.runtime.verbose,
+        distributed_config=config.distributed,
+        distributed_context=distributed_context,
         **loader_kwargs,
     )
 

@@ -1,0 +1,23 @@
+data:
+  name: fineweb_distributed_tp_2x_24gb
+  kind: hf_text
+  dataset:
+    preset_name: fineweb_10bt
+    block_size: 2048
+    tokenizer_path: data/cache/tokenizers/fineweb_10bt_32000.json
+    vocab_size: 32000
+    min_frequency: 2
+    max_tokenizer_documents: 50000
+    max_train_documents: 100000
+    max_validation_documents: null
+    streaming: true
+  loader:
+    batch_size: 1
+    validation_batch_size: 1
+    num_workers: 4
+    shuffle_train: true
+    pin_memory: auto
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: true
+    seed: 42

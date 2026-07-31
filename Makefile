@@ -4,7 +4,7 @@ PROFILE ?= config/kimi_full_pipeline/cpu_smoke
 .DEFAULT_GOAL := help
 
 .PHONY: help install install-dev validate check test test-config test-inference \
-	test-training docker-build docker-validate docker-tests docker-shell
+	test-training test-distributed docker-build docker-validate docker-tests docker-shell
 
 help: ## Show the available developer commands.
 	@awk 'BEGIN {FS = ":.*## "; printf "Kimi-K3 Mini targets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -33,6 +33,9 @@ test-inference: ## Test sampling, checkpoint loading and native cache decode.
 
 test-training: ## Run the modular training-engine tests.
 	$(PYTHON) -m pytest tests/training
+
+test-distributed: ## Run CPU/Gloo DP, TP, EP and checkpoint tests.
+	$(PYTHON) -m pytest tests/training/distributed
 
 docker-build: ## Build the non-root CPU runtime image.
 	docker build --target runtime -t kimi-k3-mini:local .

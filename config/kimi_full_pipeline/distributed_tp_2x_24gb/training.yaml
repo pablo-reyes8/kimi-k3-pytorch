@@ -1,0 +1,99 @@
+runtime:
+  device: cuda
+  total_steps: null
+  verbose: true
+  use_ema: false
+  ema_decay: 0.999
+  eval_use_ema: false
+training:
+  epochs: 3
+  gradient_accumulation_steps: 16
+  precision: bf16
+  grad_clip_norm: 1.0
+  use_mtp: true
+  max_batches_per_epoch: null
+  max_eval_batches: 64
+  log_every_steps: 10
+  eval_every_epochs: 1
+  checkpoint_every_epochs: 1
+  prediction_every_epochs: 1
+  seed: 1337
+  deterministic: false
+  max_seq_len: 1024
+loss:
+  ignore_index: -100
+  label_smoothing: 0.0
+  mtp_loss_weight: 0.1
+optimizer:
+  kind: per_head_muon_adamw
+  adamw_lr: 0.0003
+  adamw_betas: [0.9, 0.95]
+  adamw_eps: 1.0e-8
+  muon_lr: 0.0003
+  muon_momentum: 0.95
+  muon_nesterov: true
+  muon_ns_steps: 5
+  muon_ns_eps: 1.0e-7
+  muon_update_rms_scaling: true
+  weight_decay: 0.1
+  per_head_qkv: true
+  qk_clip_enabled: true
+  qk_clip_threshold: 100.0
+  qk_clip_every_steps: 1
+scheduler:
+  kind: cosine
+  warmup_ratio: 0.01
+  warmup_steps: null
+  min_lr_ratio: 0.1
+diagnostics:
+  enabled: true
+  cheap_every_steps: 1
+  standard_every_steps: 25
+  deep_every_steps: 500
+  sample_layers_per_standard_step: 4
+  sample_tokens_per_layer: 128
+  sample_parameters_per_group: 8
+  sample_elements_per_parameter: 128
+  max_diagnostic_time_fraction: 0.05
+  max_persistent_gpu_bytes: 8388608
+  alert_patience_steps: 5
+context_curriculum:
+  enabled: false
+checkpoint:
+  output_dir: checkpoints/distributed_tp_2x_24gb
+  run_name: kimi_k3_distributed_tp_2x_24gb
+  keep_last_n: 3
+  save_optimizer: true
+  save_rng_state: true
+  atomic_write: true
+  resume_from: null
+prediction:
+  sample_index: 0
+  max_tokens: 32
+distributed:
+  enabled: true
+  backend: auto
+  init_method: env
+  timeout_seconds: 1800
+  data_parallel: {mode: none, size: 1}
+  tensor_parallel:
+    enabled: true
+    size: 2
+    shard_embeddings: true
+    shard_lm_head: true
+    sequence_parallel_norms: false
+    shard_kda_heads: true
+    shard_mla_heads: true
+    shard_moe_latent_projections: false
+    mla_cache_layout: replicated
+  expert_parallel: {enabled: false, size: 1}
+  pipeline_parallel: {enabled: false, size: 1}
+  context_parallel: {enabled: false, size: 1}
+  checkpoint:
+    format: distributed
+    async_save: false
+    save_rng_per_rank: true
+  diagnostics:
+    aggregate_across_data_parallel: true
+    log_rank: 0
+    per_rank_debug: false

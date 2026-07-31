@@ -1,0 +1,48 @@
+model:
+  name: kimi_k3_distributed_tp_2x_24gb
+  architecture: kimi_k3
+  vocab_size: 32000
+  d_model: 768
+  num_heads: 12
+  num_hybrid_groups: 3
+  attention_pattern: [kda, kda, kda, gated_mla]
+  add_final_gated_mla: true
+  use_data_special_tokens: true
+  pad_token_id: 0
+  bos_token_id: 1
+  eos_token_id: 2
+  tie_word_embeddings: true
+  initializer_range: 0.02
+  kda:
+    key_head_dim: 64
+    short_conv_kernel_size: 4
+    chunk_size: 64
+    secondary_tile_size: 16
+    accumulate_state_in_fp32: true
+  mla:
+    q_head_dim: 64
+    kv_latent_dim: 768
+    attention_backend: auto
+  moe:
+    latent_dim: 384
+    num_shared_experts: 1
+    num_routed_experts: 16
+    routed_experts_per_token: 4
+    shared_expert_hidden_dim: 1024
+    routed_expert_hidden_dim: 768
+    routing_backend: vectorized
+    quantile_backend: histogram
+    enable_quantile_balancing: true
+  attention_residual:
+    mode: block
+    sublayers_per_depth_block: 8
+    backend: two_phase
+  vision:
+    enabled: false
+  mtp:
+    enabled: true
+    loss_weight: 0.1
+    attention_residual:
+      mode: block
+      sublayers_per_depth_block: 8
+      backend: eager

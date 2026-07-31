@@ -44,6 +44,7 @@ jobs:
               - '!scripts/infer_kimi.py'
               - '!scripts/validate_data_config.py'
               - '!scripts/validate_model_config.py'
+              - '!scripts/validate_distributed_config.py'
               - '!tests/configuration/**'
               - '!tests/inference/**'
             config:
@@ -52,6 +53,7 @@ jobs:
               - 'scripts/train_kimi.py'
               - 'scripts/validate_data_config.py'
               - 'scripts/validate_model_config.py'
+              - 'scripts/validate_distributed_config.py'
               - 'tests/configuration/**'
             inference:
               - 'inference/**'
@@ -88,6 +90,8 @@ jobs:
           python -m scripts.train_kimi \
             --profile config/kimi_full_pipeline/canonical \
             --validate-only
+          python -m scripts.validate_distributed_config \
+            --profile config/kimi_full_pipeline/distributed_tp_ep_4x_24gb
 
   inference:
     name: Native-cache inference

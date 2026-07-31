@@ -42,6 +42,7 @@ kimi-train = "scripts.train_kimi:main"
 kimi-infer = "scripts.infer_kimi:main"
 kimi-validate-data = "scripts.validate_data_config:main"
 kimi-validate-model = "scripts.validate_model_config:main"
+kimi-validate-distributed = "scripts.validate_distributed_config:main"
 
 [project.optional-dependencies]
 data = ["datasets>=2.18", "tokenizers>=0.15"]

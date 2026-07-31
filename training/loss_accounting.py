@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import torch
+import torch.distributed as dist
 
 
 def get_output_value(output: Any, name: str, default=None):
@@ -139,4 +140,75 @@ def combine_window_loss(
         "ntp_tokens": float(ntp_normalizer),
         "mtp_tokens": float(mtp_normalizer),
         "tokens": float(sum(item.batch_tokens for item in contributions)),
+    }
+
+
+def combine_distributed_window_loss(
+    contributions: list[LossContribution],
+    context,
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """Token-exact DP/EP objective accounting with TP replicas excluded."""
+    if context is None or not context.initialized:
+        return combine_window_loss(contributions)
+    if not contributions:
+        raise ValueError("cannot combine an empty accumulation window")
+    ntp_sum = torch.stack([item.ntp_loss_sum for item in contributions]).sum()
+    mtp_items = [item for item in contributions if item.mtp_loss_sum is not None]
+    local = torch.tensor(
+        [
+            sum(item.ntp_normalizer for item in contributions),
+            sum(item.mtp_normalizer for item in mtp_items),
+            sum(item.batch_tokens for item in contributions),
+            float(ntp_sum.detach()),
+            (
+                0.0
+                if not mtp_items
+                else float(
+                    torch.stack(
+                        [item.mtp_loss_sum for item in mtp_items]
+                    ).sum().detach()
+                )
+            ),
+        ],
+        device=ntp_sum.device,
+        dtype=torch.float64,
+    )
+    for group, size in (
+        (context.dp_group, context.dp_size),
+        (context.ep_group, context.ep_size),
+    ):
+        if size > 1:
+            dist.all_reduce(local, group=group)
+    replicas = context.dp_size * context.ep_size
+    if local[0] <= 0:
+        raise ValueError("distributed window contains no valid NTP tokens")
+    objective = ntp_sum * replicas / local[0].to(ntp_sum.dtype)
+    mtp_loss = None
+    if mtp_items:
+        lambda_values = {item.lambda_mtp for item in mtp_items}
+        if len(lambda_values) != 1:
+            raise ValueError("lambda_mtp changed inside an accumulation window")
+        mtp_sum = torch.stack(
+            [item.mtp_loss_sum for item in mtp_items]
+        ).sum()
+        if local[1] <= 0:
+            raise ValueError("distributed MTP output contains no valid tokens")
+        mtp_loss = mtp_sum * replicas / local[1].to(mtp_sum.dtype)
+        objective = objective + lambda_values.pop() * mtp_loss
+    global_ntp_loss = float((local[3] / local[0]).item())
+    global_mtp_loss = (
+        float("nan")
+        if not mtp_items
+        else float((local[4] / local[1]).item())
+    )
+    lambda_mtp = mtp_items[0].lambda_mtp if mtp_items else 0.0
+    return objective, {
+        "loss": global_ntp_loss + lambda_mtp * (
+            0.0 if not mtp_items else global_mtp_loss
+        ),
+        "ntp_loss": global_ntp_loss,
+        "mtp_loss": global_mtp_loss,
+        "ntp_tokens": float(local[0].item()),
+        "mtp_tokens": float(local[1].item()),
+        "tokens": float(local[2].item()),
     }

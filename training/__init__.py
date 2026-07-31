@@ -21,6 +21,12 @@ from .curriculum import (
 )
 from .eval_one_epoch import eval_one_epoch
 from .diagnostics import DiagnosticsConfig, KimiDiagnosticCollector, KimiTrainingPrinter
+from .distributed import (
+    DistributedConfig,
+    DistributedContext,
+    initialize_distributed,
+    parallelize_kimi_model,
+)
 from .logger import JSONLLogger, MemoryLogger, TrainingLogger
 from .moe_control import MoEController
 from .predictions import next_token_preview, print_next_token_preview
@@ -46,6 +52,8 @@ __all__ = [
     "ContextStage",
     "ContextTransition",
     "DiagnosticsConfig",
+    "DistributedConfig",
+    "DistributedContext",
     "JSONLLogger",
     "KimiDiagnosticCollector",
     "KimiOptimizerConfig",
@@ -72,8 +80,10 @@ __all__ = [
     "build_warmup_cosine_scheduler",
     "eval_one_epoch",
     "load_checkpoint",
+    "initialize_distributed",
     "next_token_preview",
     "print_next_token_preview",
+    "parallelize_kimi_model",
     "save_checkpoint",
     "set_seed",
     "train_kimiK3",

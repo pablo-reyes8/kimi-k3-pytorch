@@ -55,7 +55,12 @@ class QKClipController:
         self.every_steps = int(every_steps)
         self.layers = []
         for name, module in model.named_modules():
-            if isinstance(module, GatedMLA):
+            custom_weights = getattr(module, "_kimi_qk_weights", None)
+            if custom_weights is not None:
+                self.layers.append(
+                    (name, module, custom_weights[0], custom_weights[1])
+                )
+            elif isinstance(module, GatedMLA):
                 self.layers.append(
                     (
                         name,
@@ -91,7 +96,19 @@ class QKClipController:
             scale = getattr(module, "_last_qk_scale", None)
             if scale is None:
                 continue
-            value = float(scale.detach().float().item())
+            reduced_scale = scale.detach().float().clone()
+            process_group = getattr(module, "_kimi_qk_group", None)
+            if (
+                process_group is not None
+                and torch.distributed.is_initialized()
+                and torch.distributed.get_world_size(process_group) > 1
+            ):
+                torch.distributed.all_reduce(
+                    reduced_scale,
+                    op=torch.distributed.ReduceOp.MAX,
+                    group=process_group,
+                )
+            value = float(reduced_scale.item())
             if not math.isfinite(value):
                 raise FloatingPointError("QK scale proxy is non-finite")
             observed.append(value)

@@ -97,6 +97,16 @@ def _qkv_role_and_layout(
     modules: dict[str, nn.Module],
 ) -> tuple[str, HeadMatrixLayout] | None:
     owner = modules[owner_name]
+    parallel_head_spec = getattr(owner, "_kimi_head_spec", None)
+    if parallel_head_spec is not None:
+        num_heads, head_dim = parallel_head_spec
+        return getattr(owner, "_kimi_role"), HeadMatrixLayout(
+            num_heads=num_heads,
+            head_dim=head_dim,
+            head_axis=0,
+            input_dim=owner.in_features,
+            output_dim=owner.local_out_features,
+        )
     parent, attribute = _parent(owner_name, modules)
     if isinstance(parent, KDAProjections) and attribute in {
         "q_proj",
@@ -188,6 +198,10 @@ def build_parameter_registry(
 
         role = "other"
         layout = None
+        explicit_role = getattr(owner, "_kimi_role", None)
+        parallel_linear = bool(
+            getattr(owner, "_kimi_parallel_linear", False)
+        )
         no_decay = (
             parameter.ndim < 2
             or name.endswith(".bias")
@@ -195,15 +209,18 @@ def build_parameter_registry(
             or _is_norm(name, owner)
             or "lm_head" in name
             or "pseudo_query" in name
+            or explicit_role in {"embedding", "lm_head"}
         )
-        if isinstance(owner, nn.Embedding):
+        if qkv is not None:
+            role, layout = qkv
+        elif explicit_role is not None:
+            role = explicit_role
+        elif isinstance(owner, nn.Embedding):
             role = "embedding"
         elif "lm_head" in name:
             role = "lm_head"
         elif _is_norm(name, owner):
             role = "norm"
-        elif qkv is not None:
-            role, layout = qkv
         elif isinstance(owner, nn.Linear):
             lower = name.lower()
             if ".router." in lower:
@@ -226,7 +243,7 @@ def build_parameter_registry(
         elif layout is not None and kind == "per_head_muon_adamw":
             family = "per_head_muon"
         elif (
-            isinstance(owner, nn.Linear)
+            (isinstance(owner, nn.Linear) or parallel_linear)
             and parameter.ndim == 2
             and not no_decay
             and role != "moe_router"
@@ -238,7 +255,7 @@ def build_parameter_registry(
         if (
             strict
             and parameter.ndim == 2
-            and isinstance(owner, nn.Linear)
+            and (isinstance(owner, nn.Linear) or parallel_linear)
             and role == "other"
         ):
             ambiguous.append(name)
