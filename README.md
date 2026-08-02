@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/header_image.png" width="1000" alt="Kimi-K3 Mini: from-scratch PyTorch implementation"/>
+  <img src="assets/header_image.png" width="1000" alt="Kimi-K3"/>
 </p>
 
 --- 
